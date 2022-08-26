@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tags on CyberTaskForce Zero</title>
+    <link>https://ctf0.de/tags/</link>
+    <description>Recent content in Tags on CyberTaskForce Zero</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
+    <lastBuildDate>Mon, 01 Aug 2022 13:27:00 +0200</lastBuildDate><atom:link href="https://ctf0.de/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>aes</title>
+      <link>https://ctf0.de/tags/aes/</link>
+      <pubDate>Mon, 01 Aug 2022 13:27:00 +0200</pubDate>
+      
+      <guid>https://ctf0.de/tags/aes/</guid>
+      <description></description>
+      <content></content>
+    </item>
+    
+    <item>
+      <title>crypto</title>
+      <link>https://ctf0.de/tags/crypto/</link>
+      <pubDate>Mon, 01 Aug 2022 13:27:00 +0200</pubDate>
+      
+      <guid>https://ctf0.de/tags/crypto/</guid>
+      <description></description>
+      <content></content>
+    </item>
+    
+    <item>
+      <title>beginner</title>
+      <link>https://ctf0.de/tags/beginner/</link>
+      <pubDate>Tue, 03 Aug 2021 23:59:13 +0100</pubDate>
+      
+      <guid>https://ctf0.de/tags/beginner/</guid>
+      <description></description>
+      <content></content>
+    </item>
+    
+  </channel>
+</rss>

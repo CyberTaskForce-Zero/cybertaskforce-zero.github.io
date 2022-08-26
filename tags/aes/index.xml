@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>aes on CyberTaskForce Zero</title>
+    <link>https://ctf0.de/tags/aes/</link>
+    <description>Recent content in aes on CyberTaskForce Zero</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
+    <lastBuildDate>Mon, 01 Aug 2022 13:27:00 +0200</lastBuildDate><atom:link href="https://ctf0.de/tags/aes/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>UIUCTF 2022: mom can we have AES</title>
+      <link>https://ctf0.de/posts/uiuctf22-mom-can-we-have-aes/</link>
+      <pubDate>Mon, 01 Aug 2022 13:27:00 +0200</pubDate>
+      
+      <guid>https://ctf0.de/posts/uiuctf22-mom-can-we-have-aes/</guid>
+      <description>The challenge consists of two services communicating with each other: server.py on port 1337 and client.py on port 1338.
+Services Most part of the provided services is used for initializing AES, which is very similar to the one used in TLS. In the following I will explain the initialization in the order of the communication and will therefore switch between client.py and server.py.
+Both scripts start with the same imports and by defining the supported AES modes:</description>
+      <content>&lt;p&gt;The challenge consists of two services communicating with each other: &lt;a href=&#34;https://2022.uiuc.tf/files/db45f0c6d5e88ae21c97ba4641f6971d/server.py&#34;&gt;&lt;code&gt;server.py&lt;/code&gt;&lt;/a&gt; on port 1337 and &lt;a href=&#34;https://2022.uiuc.tf/files/ebccf298bcd26b5b2258ec4279202f2f/client.py&#34;&gt;&lt;code&gt;client.py&lt;/code&gt;&lt;/a&gt; on port 1338.&lt;/p&gt;
+&lt;h1 id=&#34;services&#34;&gt;Services&lt;/h1&gt;
+&lt;p&gt;Most part of the provided services is used for initializing AES, which is very similar to the one used in TLS. In the following I will explain the initialization in the order of the communication and will therefore switch between &lt;code&gt;client.py&lt;/code&gt; and &lt;code&gt;server.py&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Both scripts start with the same imports and by defining the supported AES modes:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Util.Padding &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; pad, unpad
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.PublicKey &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; RSA
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Cipher &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; AES, PKCS1_OAEP
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Hash &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; SHA256
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Signature &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; PKCS1_v1_5
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; random
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; string
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; fields &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; cert, block_size
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; secret &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; flag
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher_suite &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AES.MODE_CBC&amp;#34;&lt;/span&gt; : AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CBC, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AES.MODE_CTR&amp;#34;&lt;/span&gt; : AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CTR, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AES.MODE_EAX&amp;#34;&lt;/span&gt; : AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_EAX, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AES.MODE_GCM&amp;#34;&lt;/span&gt; : AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_GCM,  &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AES.MODE_ECB&amp;#34;&lt;/span&gt; : AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_ECB}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The initialization begins at the client by generating four random characters and sending them together with the supported AES modes to the server. TLS uses much larger random values (32 byte) and will send some additional information such as the protocol version.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## Client Hello ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Cipher suite&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;cipher_suite&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;keys(), sep&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;, &amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;client_random &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;join(random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;SystemRandom()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choice(string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ascii_uppercase &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits) &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; _ &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Client random&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(client_random)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The server receives both and stores them for later use.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## Client Hello ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter encryption methods&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;input_encryptions_suite &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;client_cipher_suite &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input_encryptions_suite&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;split(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;, &amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter client random&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;client_random &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now the server proceeds with sending his own hello, starting with a signed hash of his certificate. In TLS, the server would send the actual certificate and a signed hash of all previous messages.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## Server Hello ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Certificate&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;private_key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; RSA&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;import_key(open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;my_credit_card_number.pem&amp;#34;&lt;/span&gt;)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher_hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; SHA256&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(cert)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;signature &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; PKCS1_v1_5&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(private_key)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sign(cipher_hash)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#Signed certificate&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(signature&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex())
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After that the server computes the intersection of the AES modes supported by him and the client and sends the resulting list back to the client. In TLS, the server chooses one of the ciphers that is understood by client and server and sends only the selected cipher to the client.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# select cipher suite&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;selected_cipher_suite &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; method &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; cipher_suite:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; method &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; client_cipher_suite:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        selected_cipher_suite[method] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher_suite[method]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(selected_cipher_suite) &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Honey, we have a problem. I&amp;#39;m sorry but I&amp;#39;m disowning you :(&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    exit()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Selected cipher suite&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;selected_cipher_suite&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;keys(), sep&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;, &amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Finally, the server generates four random characters and sends them to the client. As with the client random, TLS will generate a 32 byte long random value.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;server_random &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;join(random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;SystemRandom()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choice(string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ascii_uppercase &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits) &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; _ &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Server random&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(server_random)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now back to the client. It first loads the preshared public key of the server and verifies the signature. As the certificate is preshared in this case, the server didn&amp;rsquo;t have to send it. Furthermore in TLS the public key would be read from the certificate and not from a separate file. As an alternative to certificates, TLS supports the Diffie-Hellman key exchange, which is covered in last years UIUCTF challenge &lt;a href=&#34;https://ctf0.de/posts/uiuctf2021-dhke-intro/&#34;&gt;&lt;code&gt;dhke_intro&lt;/code&gt;&lt;/a&gt;.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## Server Hello ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# verify server&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter signed certificate&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;server_signature_hex &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;server_signature &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(server_signature_hex)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;public_key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; RSA&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;import_key(open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;receiver.pem&amp;#34;&lt;/span&gt;)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher_hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; SHA256&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(cert)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;verifier &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; PKCS1_v1_5&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(public_key)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;not&lt;/span&gt; verifier&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;verify(cipher_hash, server_signature):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Mom told me not to talk to strangers.&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    exit()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As next step, the client parses the cipher suits supported by the server.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter selected cipher suite&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;input_encryptions_suite &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(input_encryptions_suite) &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34; nO SeCUriTY :/&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    exit()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;selected_cipher_suite &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;input_encryptions_suite &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input_encryptions_suite&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;split(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;, &amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; method &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; input_encryptions_suite:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; method &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; cipher_suite:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        selected_cipher_suite[method] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher_suite[method]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(selected_cipher_suite) &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;I&amp;#39;m a rebellious kid who refuses to talk to people who don&amp;#39;t speak my language.&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    exit()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As last part of the parsing of the server hello, the random characters from the server are stored for later use.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter server random&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;server_random &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As next step, the client initializes AES, starting with the generation of the premaster secret. This is then encrypted and send to the server. As in previous cases, the premaster secret of TLS is larger and uses 48 bytes.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;premaster_secret &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;join(random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;SystemRandom()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choice(string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ascii_uppercase &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits) &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; _ &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher_rsa &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; PKCS1_OAEP&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(public_key)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;premaster_secret_encrypted &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher_rsa&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encrypt(premaster_secret&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Encrypted premaster secret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(premaster_secret_encrypted)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Then the session key is computed from the previously generated premaster secret and both random values.
+Because the premaster secret is send encrypted, the session key is only known to the client and server. The use of client and server random prevents replay attacks, as the target of the replay will choose a different one. This is especially true for TLS, since 4 of the 32 bytes of the client and server random are the current timestamp.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;session_key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; SHA256&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new((client_random &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; server_random &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; premaster_secret)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hexdigest()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now the client chooses one of the ciphers supported by client and server and informs the server about the selected cipher.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;chosen_cipher_name &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; next(iter(selected_cipher_suite))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Using encryption mode&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(chosen_cipher_name)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(session_key&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()[:&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;], cipher_suite[chosen_cipher_name])
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The server receives the premaster secret, decrypts it with its private key and uses it to calculate the same session key.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## ClientKeyExchange &amp;amp; CipherSpec Finished ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter premaster secret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;encrypted_premaster_secret &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher_rsa &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; PKCS1_OAEP&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(private_key)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;premaster_secret &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher_rsa&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(encrypted_premaster_secret))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decode(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;utf-8&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;session_key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; SHA256&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new((client_random &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; server_random &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; premaster_secret)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hexdigest()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After that, the server will check wether the selected cipher is one of the supported ones and will then initialize AES with the session key and the selected mode.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter chosen cipher&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;chosen_cipher_name &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; chosen_cipher_name &lt;span style=&#34;color:#f92672&#34;&gt;not&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; selected_cipher_suite:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;No honey, I told you we&amp;#39;re not getting &amp;#34;&lt;/span&gt;, chosen_cipher_name, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;.&amp;#39;&lt;/span&gt;, sep&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    exit()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(session_key&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()[:&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;], cipher_suite[chosen_cipher_name])
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Finally the client sends an AES encrypted &lt;code&gt;finish&lt;/code&gt; to the server.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Encrypted finish message&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encrypt(pad(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;finish&amp;#34;&lt;/span&gt;, block_size))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex())
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The server decrypts the &lt;code&gt;finish&lt;/code&gt; and checks wether it is correct. This is a final proof, that both sides have calculated the same session key.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Enter encrypted finish&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;client_finish &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;client_finish &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(client_finish)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## ServerKeyExchange &amp;amp; CipherSpec Finished ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;finish_msg &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; unpad(cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(client_finish), block_size)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;assert&lt;/span&gt;(finish_msg &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;finish&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;In TLS, the server would also send a finish message over the encrypted channel to proof the client the it has the same session key. In this challenge, the message is not send but the client wants to receive an unencrypted &lt;code&gt;finish&lt;/code&gt; and checks it.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## ServerKeyExchange &amp;amp; CipherSpec Finished ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Confirm finish&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;finish_msg &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;assert&lt;/span&gt;(finish_msg &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;finish&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now the connection is established and the contents can be exchanged.&lt;/p&gt;
+&lt;p&gt;The server checks each message if it exactly matches the flag and prints a message indicating the result.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## Communication ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Listening...&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client_msg &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client_msg &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; unpad(cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(client_msg)), block_size)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; client_msg &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; flag:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;That is correct.&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;You are not my son.&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;This has little to no interest for us, since we would have to guess the whole flag at once, which is way to much effort. We can only use it to verify the flag.&lt;/p&gt;
+&lt;p&gt;The client is much more useful. It requests a hex-encoded prefix, appends the flag to the decoded prefix and prints the AES encrypted result.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;########## Communication ##########&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    prefix &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; input()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(prefix) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        prefix &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(prefix)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        extended_flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; prefix &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; flag
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        extended_flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; flag
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ciphertext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encrypt(pad(extended_flag, block_size))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(str(ciphertext))
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;This enables us to brute force the flag character by character, which can be done in a few minutes.&lt;/p&gt;
+&lt;h1 id=&#34;exploit&#34;&gt;Exploit&lt;/h1&gt;
+&lt;p&gt;For solving the challenge, we used pwntools&amp;rsquo; &lt;a href=&#34;https://docs.pwntools.com/en/stable/tubes/sockets.html#pwnlib.tubes.remote.remote&#34;&gt;&lt;code&gt;remote&lt;/code&gt;&lt;/a&gt; for the communication with the services and python&amp;rsquo;s &lt;code&gt;string&lt;/code&gt; to obtain a list of flag characters.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; pwn &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; string
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;First we have to initialize the connection to the client. Therefore we connect to the client and server and relay the messages from the server to the client and vice versa.&lt;/p&gt;
+&lt;p&gt;After connecting to the services,&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;get_services&lt;/span&gt;():
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# connect to server and client&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; remote(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;mom-can-we-have-aes.chal.uiuc.tf&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;1337&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; remote(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;mom-can-we-have-aes.chal.uiuc.tf&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;1338&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;the services will send &lt;code&gt;== proof-of-work: disabled ==\n&lt;/code&gt;, which we have to skip, since this is not part of the protocol.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# skip proof of work message&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As first message, the client will send us the supported AES modes. As we want to use ECB, we drop the received list and send only &lt;code&gt;AES.MODE_ECB&lt;/code&gt; to the server. We will explain this decision later, when we actually use the properties of this mode.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# AES modes&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AES.MODE_ECB&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The remaining initialization can be relayed.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# client random&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;send(client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# server signature&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;send(server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# server AES mode&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;send(server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# server random&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;send(server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# client encrypted premaster secret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;send(client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# client chosen AES mode&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;send(client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# client finish&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    finish &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;send(finish)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Since the client expects a plain text &lt;code&gt;finish&lt;/code&gt; and the server does not send it, we must send it ourselves. After that we have a server and a client in their main loop, which can be returned.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# send finish for client&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;finish&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; server, client
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we come to the actual exploit and the chosen AES mode.&lt;/p&gt;
+&lt;p&gt;AES works by dividing the message to encrypt in blocks of 16 bytes. The difference between the modes is the handling of these blocks. The simplest mode is &lt;em&gt;Electronic CodeBook&lt;/em&gt; (ECB), which just takes each block and encrypts it separately. This has the effect, that the same plain text block will always result in the same encrypted block. Because of this, structures are retained. A popular example for this property is the ECB encrypted Tux (&lt;a href=&#34;https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#ECB)&#34;&gt;https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#ECB)&lt;/a&gt;. As a result of this insecureness, ECB is not part of the ciphers available in TLS.&lt;/p&gt;
+&lt;p&gt;We can use this insecureness to our advantage. If we send a prefix, the flag is moved to the right, resulting in a different alignment against the block boundaries. By changing the length of the prefix, we can adjust the position of the flag relative to the block boundaries. In the example below we used underscores as prefix.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;|     block 1          block 2
+|----------------|----------------|
+|uiuctf{FAKEFLAG}|                |
+|_______________u|iuctf{FAKEFLAG} |
+|______________ui|uctf{FAKEFLAG}  |
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Let&amp;rsquo;s assume, we already know the first character (which we do, since all flags start with &lt;code&gt;uiuctf{&lt;/code&gt;). We now can guess the second character by appending the prefix used in the last row of the above example with the already known part of the flag and our guess. If we guess the correct character, the first block will be identical to the one requested with only the underscores.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;     block 1          block 2
+|----------------|----------------|
+|______________ui|uctf{FAKEFLAG}  |
+|                |                |
+|______________uA|uiuctf{FAKEFLAG}|
+|______________uB|uiuctf{FAKEFLAG}|
+|______________ui|uiuctf{FAKEFLAG}|
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;With this knowledge we can begin to write the method for brute forcing one character. It takes a connection to a &lt;code&gt;client&lt;/code&gt;, the already guessed &lt;code&gt;flag&lt;/code&gt; and the &lt;code&gt;alphabet&lt;/code&gt; to use as parameters. At first we request the encrypted blocks to search for by sending only the prefix. This results in the flag being moved to the right, such that the second block will end one character after the already guessed flag characters. Since the encrypted flag spans over two blocks, we send a prefix of 32 minus the number of wanted flag characters as prefix.&lt;/p&gt;
+&lt;p&gt;For converting the string to hex, we have to convert the string to bytes first and can then convert them to hex. As pwntools needs the data to send as bytes and the returned hex representation is a string, we have to encode it again.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;brute_force_char&lt;/span&gt;(client, flag, alphabet):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# encrypted flag part&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline((&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;A&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;len(flag)))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As the remaining blocks won&amp;rsquo;t match, since they contain the remaining flag characters in the search request and the whole flag in the guess requests, we keep only the hex representation of the first two blocks, i.e. 64 hex characters.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    search &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()[:&lt;span style=&#34;color:#ae81ff&#34;&gt;64&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can iterate over the given alphabet and test each character.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    prefix &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;A&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;len(flag)) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; flag
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# iterate over alphabet&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; c &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; alphabet:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline((prefix &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; c)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        recv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()[:&lt;span style=&#34;color:#ae81ff&#34;&gt;64&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;If the received blocks match with the search pattern, we have found the next flag character and can abort the loop&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; recv &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; search:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; c
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As we now have the initialization of the services and the brute forcing of one flag character done, we can develope the main control flow and define the alphabet of the flag. &lt;code&gt;string.printable&lt;/code&gt; contains all printable ASCII characters, including whitespace.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;printable
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Furthermore we can define the known start of the flag, as its the same format for all challenges&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf{&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Before starting the brute forcing, we have to get a client. Since we do not need the server, we can close it.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# get services&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;server, client &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; get_services()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# close server&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;close()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we brute force the flag character by character until we reach the closing curly brace.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; flag[&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;}&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    flag &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; brute_force_char(client, flag, ALPHABET)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# print progress&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(flag)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;By running this script, we get the flag after less than two minutes: &lt;code&gt;uiuctf{AES_@_h0m3_b3_l1ke3}&lt;/code&gt;.&lt;/p&gt;
+&lt;h1 id=&#34;optimization&#34;&gt;Optimization&lt;/h1&gt;
+&lt;p&gt;The acquisition of the search blocks can be optimized by requesting only each of the possible 16 offsets of the flag in a block once and then reusing them. The following example demonstrates this by brute forcing the second (compare only the first block) and the 18. character of the flag (compare the first and the second block).&lt;/p&gt;
+
+
+
+&lt;div class=&#34;goat svg-container &#34;&gt;
+  
+    &lt;svg
+      xmlns=&#34;http://www.w3.org/2000/svg&#34;
+      font-family=&#34;Menlo,Lucida Console,monospace&#34;
+      
+        viewBox=&#34;0 0 560 217&#34;
+      &gt;
+      &lt;g transform=&#39;translate(8,16)&#39;&gt;
+&lt;path d=&#39;M 0,0 L 136,0&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,0 L 272,0&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,0 L 408,0&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,0 L 544,0&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,32 L 136,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,32 L 272,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,32 L 408,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,32 L 544,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,64 L 136,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,64 L 272,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,64 L 408,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,64 L 544,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,96 L 136,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,96 L 272,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,96 L 408,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,96 L 544,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,128 L 136,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,128 L 272,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,128 L 408,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,128 L 544,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,160 L 136,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,160 L 272,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,160 L 408,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,160 L 544,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,192 L 136,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,192 L 272,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,192 L 408,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,192 L 544,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,0 L 0,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,32 L 0,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,64 L 0,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,96 L 0,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,128 L 0,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 0,160 L 0,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,0 L 136,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,32 L 136,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,64 L 136,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,96 L 136,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,128 L 136,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 136,160 L 136,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,0 L 272,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,32 L 272,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,64 L 272,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,96 L 272,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,128 L 272,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 272,160 L 272,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,0 L 408,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,32 L 408,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,64 L 408,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,96 L 408,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,128 L 408,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 408,160 L 408,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 544,0 L 544,32&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 544,32 L 544,64&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 544,64 L 544,96&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 544,96 L 544,128&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 544,128 L 544,160&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;path d=&#39;M 544,160 L 544,192&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39;&gt;&lt;/path&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;8&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;8&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;8&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;8&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;8&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;16&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;16&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;16&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;16&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;16&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;24&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;24&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;24&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;24&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;24&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;32&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;32&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;32&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;32&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;32&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;40&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;b&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;40&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;40&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;40&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;40&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;40&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;48&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;l&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;48&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;48&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;48&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;48&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;48&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;56&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;o&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;56&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;56&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;56&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;56&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;56&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;64&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;64&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;64&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;64&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;64&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;64&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;72&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;k&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;72&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;72&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;72&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;72&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;72&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;80&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;80&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;80&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;80&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;80&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;88&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;1&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;88&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;88&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;88&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;88&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;88&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;96&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;96&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;96&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;96&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;96&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;104&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;104&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;104&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;104&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;104&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;112&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;112&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;112&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;112&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;112&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;=&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;120&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;120&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;120&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;120&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;120&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;128&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;128&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;?&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;128&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;128&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;128&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;144&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;144&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;144&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;144&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;144&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;152&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;152&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;152&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;152&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;152&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;160&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;t&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;160&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;160&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;160&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;t&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;160&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;t&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;168&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;f&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;168&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;168&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;168&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;f&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;168&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;f&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;176&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;b&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;176&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;{&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;176&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;t&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;176&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;t&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;176&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;{&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;176&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;{&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;184&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;l&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;184&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;184&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;f&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;184&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;f&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;184&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;184&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;192&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;o&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;192&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;O&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;192&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;{&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;192&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;{&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;192&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;O&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;192&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;O&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;200&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;200&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;N&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;200&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;200&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;200&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;N&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;200&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;N&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;208&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;k&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;208&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;208&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;O&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;208&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;O&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;208&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;208&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;216&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;216&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;N&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;216&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;N&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;216&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;216&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;224&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;2&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;224&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;224&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;224&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;224&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;224&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;232&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;K&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;232&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;232&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;232&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;K&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;232&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;K&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;240&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;E&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;240&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;240&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;240&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;E&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;240&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;E&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;248&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;248&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;K&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;248&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;K&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;248&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;248&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;256&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;256&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;E&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;256&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;E&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;256&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;256&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;264&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;264&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;264&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;264&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;?&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;264&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;280&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;280&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;280&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;280&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;280&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;288&#39; y=&#39;52&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;}&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;288&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;288&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;288&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;288&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;i&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;296&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;296&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;296&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;296&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;u&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;304&#39; y=&#39;84&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;}&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;304&#39; y=&#39;116&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;}&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;304&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;304&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;312&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;b&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;312&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;t&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;312&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;t&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;320&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;l&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;320&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;f&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;320&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;f&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;328&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;o&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;328&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;{&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;328&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;{&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;336&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;336&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;336&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;344&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;k&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;344&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;O&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;344&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;O&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;352&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;N&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;352&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;N&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;360&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;3&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;360&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;360&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;368&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;368&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;376&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;376&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;384&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;K&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;384&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;K&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;392&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;E&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;392&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;E&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;400&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;400&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;F&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;416&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;416&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;L&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;424&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;424&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;A&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;432&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;432&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;G&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;440&#39; y=&#39;148&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;}&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;440&#39; y=&#39;180&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;}&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;448&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;b&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;456&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;l&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;464&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;o&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;472&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;c&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;480&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;k&lt;/text&gt;
+&lt;text text-anchor=&#39;middle&#39; x=&#39;496&#39; y=&#39;20&#39; fill=&#39;currentColor&#39; style=&#39;font-size:1em&#39;&gt;4&lt;/text&gt;
+&lt;/g&gt;
+
+    &lt;/svg&gt;
+  
+&lt;/div&gt;
+&lt;p&gt;This strategy would require to first request all possible search offsets:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;searchs &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; []
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# encrypted flag part&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline((&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;A&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;15&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;i))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    searchs&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline())
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;brute_force_char&lt;/code&gt; would then use up to 15 prefix characters and compare as many blocks as needed to include characters up to the guessed one.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;brute_force_char&lt;/span&gt;(client, flag, alphabet, searchs):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    prefix &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;A&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;15&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(flag)&lt;span style=&#34;color:#f92672&#34;&gt;%&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; flag
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    compare_length &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; (len(prefix)&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    search &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; searchs[len(flag)&lt;span style=&#34;color:#f92672&#34;&gt;%&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;][:compare_length]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# iterate over alphabet&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; c &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; alphabet:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline((prefix &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; c)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        recv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()[:compare_length]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; recv &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; search:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; c
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The main loop remains identical, except from &lt;code&gt;searchs&lt;/code&gt; being passed as third parameter to &lt;code&gt;brute_force_char&lt;/code&gt;. Since the flag only contains 27 characters, this optimization saves 11 requests, which is negligible compared to the up to 93 tries for the closing curly brace.&lt;/p&gt;
+&lt;h1 id=&#34;parallelization&#34;&gt;Parallelization&lt;/h1&gt;
+&lt;p&gt;The approach used in the exploit can be parallelized by using multiple connections. Since the session key will be different for each connection, the encrypted plain text and therefore the search pattern will be different and must be requested for each session. Then the alphabet can be distributed between the connections.&lt;/p&gt;
+&lt;p&gt;A good library for this is python&amp;rsquo;s &lt;a href=&#34;https://docs.python.org/3/library/concurrent.futures.html&#34;&gt;&lt;code&gt;concurrent.futures&lt;/code&gt;&lt;/a&gt; library. It allows to distribute tasks between a defined number of workers and returning finished tasks without manually querying all workers. Furthermore we will use the &lt;code&gt;threading&lt;/code&gt; library to store data at the worker threads and &lt;code&gt;ceil&lt;/code&gt; from the math library.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; concurrent.futures &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; cf
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; threading
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; math
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The main part of &lt;code&gt;concurrent.futures&lt;/code&gt; are the executors. They control the workers and distribute the tasks. &lt;code&gt;concurrent.futures&lt;/code&gt; offers two types of executors: &lt;code&gt;ThreadPoolExecutor&lt;/code&gt; and &lt;code&gt;ProcessPoolExecutor&lt;/code&gt;. As the names indicate, the former one uses threads and the later one subprocesses for it&amp;rsquo;s workers. Concurrency can be solved in multiple ways. Python decided to use the easiest and safest one by introducing the global interpreter lock. This lock ensures, that there is always only one thread executing bytecode. In contrast to threads, subprocesses are, as the name indicates, separate processes, resulting in having an own global interpreter lock for each process. As a consequence, the access to variables outside the process is limited. Furthermore &lt;code&gt;ProcessPolExecutor&lt;/code&gt; cannot be used inside the python console. Since the requests are I/O bound tasks with negligible computing time, there should be no noticeable difference between those two executors. But as threads are more light weight, they can be spawned a bit faster. Because of the beforementioned advantages of threads, we will take the &lt;code&gt;ThreadPoolExecutor&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Since we want to reuse clients for multiple requests, we have to initialize the workers first. Since each client has a different session key, we have to request the search pattern for each client and therefore store it together with the corresponding flag part in the client.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;init_worker&lt;/span&gt;():
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# get services&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server, client &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; get_services()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# close server&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    server&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;close()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# set additional client attributes&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;None&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;search &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;None&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# store client with the thread&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    threading&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;current_thread()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;client &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can adjust the brute force method, which will be executed by the threads. Each run will try only one character. We first have to ensure, that the blocks to search for are the ones for the current flag character. Then we can request the encryption of our try and return the result of the comparison together with the tested character.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;try_character&lt;/span&gt;(flag, char):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# get client&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; threading&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;current_thread()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;client
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# test if search pattern is for current flag character&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;flag &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; flag:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# encrypted flag part&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline((&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;A&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;len(flag)))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;search &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()[:&lt;span style=&#34;color:#ae81ff&#34;&gt;64&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# test character&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sendline((&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;A&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;len(flag)) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; flag &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; char)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    test &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;recvline()[:&lt;span style=&#34;color:#ae81ff&#34;&gt;64&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# return test result&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; test &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;search, char
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After we having all prerequisites, we can now rebuild the main control flow, starting with the already known definitions of the flag start and the alphabet.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf{&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; string&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;printable
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can create the executor. We choose each thread to handle up to five characters, which results in every sixth the requests being one for the search pattern.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;max_workers &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; math&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ceil(len(ALPHABET)&lt;span style=&#34;color:#f92672&#34;&gt;/&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;executor &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cf&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ThreadPoolExecutor(max_workers&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;max_workers, initializer&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;init_worker)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The main loop looks different this time, since we have to deal with the executor and its results. Since we want to pass the already brute forced part of the flag to &lt;code&gt;try_character&lt;/code&gt;, we cannot use the &lt;code&gt;map&lt;/code&gt; function of the executor and must submit each call ourselves.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; flag[&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;}&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# get futures&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    futures &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [executor&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;submit(try_character, flag, c) &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; c &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; ALPHABET]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After having a list with futures, we have to resolve them. By using &lt;code&gt;as_completed&lt;/code&gt;, we get completed futures independent of the order in the passed list. As before, we stop the loop when we found the next flag character.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# handle results&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; future &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; cf&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;as_completed(futures):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        result, char &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; future&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;result()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; result:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            flag &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; char
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            print(flag)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;break&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;But stopping the loop won&amp;rsquo;t stop the executor from executing the futures, so we have to cancel them ourselves. The cancellation of the remaining futures will reduce the runtime from around 30 seconds to around 22 seconds.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# cancel remaining futures&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; future &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; futures:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        future&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;cancel()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h1 id=&#34;other-modes&#34;&gt;Other Modes&lt;/h1&gt;
+</content>
+    </item>
+    
+  </channel>
+</rss>

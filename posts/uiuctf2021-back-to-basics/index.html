@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+    <title>UIUCTF 2021: back_to_basics :: CyberTaskForce Zero</title>
+  
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Shoutout to those people who think that base64 is proper encryption" />
+<meta name="keywords" content="ctf tu-bs stratum0" />
+<meta name="robots" content="noodp" />
+<link rel="canonical" href="https://ctf0.de/posts/uiuctf2021-back-to-basics/" />
+
+
+
+
+<link rel="stylesheet" href="https://ctf0.de/assets/style.css">
+
+
+
+
+
+
+<link rel="apple-touch-icon" href="https://ctf0.de/img/apple-touch-icon-192x192.png">
+
+  <link rel="shortcut icon" href="https://ctf0.de/img/favicon/orange.png">
+
+
+
+<meta name="twitter:card" content="summary" />
+
+
+
+<meta property="og:locale" content="en" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="UIUCTF 2021: back_to_basics">
+<meta property="og:description" content="Shoutout to those people who think that base64 is proper encryption" />
+<meta property="og:url" content="https://ctf0.de/posts/uiuctf2021-back-to-basics/" />
+<meta property="og:site_name" content="CyberTaskForce Zero" />
+
+  
+    <meta property="og:image" content="https://ctf0.de/img/favicon/orange.png">
+  
+
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+
+
+  <meta property="article:published_time" content="2021-08-03 23:59:13 &#43;0100 &#43;0100" />
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+<body class="orange">
+
+
+<div class="container center headings--one-size">
+
+  <header class="header">
+  <div class="header__inner">
+    <div class="header__logo">
+      <a href="/">
+  <div class="logo">
+    CTF0
+  </div>
+</a>
+
+    </div>
+    
+      <div class="menu-trigger">menu</div>
+    
+  </div>
+  
+    <nav class="menu">
+  <ul class="menu__inner menu__inner--desktop">
+    
+      
+        
+          <li><a href="/about">About</a></li>
+        
+      
+      
+    
+
+    
+  </ul>
+
+  <ul class="menu__inner menu__inner--mobile">
+    
+      
+        <li><a href="/about">About</a></li>
+      
+    
+    
+  </ul>
+</nav>
+
+  
+</header>
+
+
+  <div class="content">
+    
+<div class="post">
+  <h1 class="post-title">
+    <a href="https://ctf0.de/posts/uiuctf2021-back-to-basics/">UIUCTF 2021: back_to_basics</a></h1>
+  <div class="post-meta">
+    
+      <span class="post-date">
+        2021-08-03
+        
+      </span>
+    
+    
+      <span class="post-author">:: Minei3oat</span>
+    
+    
+  </div>
+
+  
+  <span class="post-tags">
+    
+    #<a href="https://ctf0.de/tags/crypto/">crypto</a>&nbsp;
+    
+    #<a href="https://ctf0.de/tags/beginner/">beginner</a>&nbsp;
+    
+  </span>
+  
+  
+
+
+  
+
+  <div class="post-content"><div>
+        <h4 id="description">Description:<a href="#description" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<p>Shoutout to those people who think that base64 is proper encryption</p>
+<h4 id="mainpy">main.py<a href="#mainpy" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.Util.number <span style="color:#f92672">import</span> long_to_bytes, bytes_to_long
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> gmpy2 <span style="color:#f92672">import</span> mpz, to_binary
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#from secret import flag, key</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ALPHABET <span style="color:#f92672">=</span> bytearray(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">base_n_encode</span>(bytes_in, base):
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> mpz(bytes_to_long(bytes_in))<span style="color:#f92672">.</span>digits(base)<span style="color:#f92672">.</span>upper()<span style="color:#f92672">.</span>encode()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">base_n_decode</span>(bytes_in, base):
+</span></span><span style="display:flex;"><span>	bytes_out <span style="color:#f92672">=</span> to_binary(mpz(bytes_in, base<span style="color:#f92672">=</span>base))[:<span style="color:#ae81ff">1</span>:<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>]
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bytes_out
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">encrypt</span>(bytes_in, key):
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> bytes_in
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> key:
+</span></span><span style="display:flex;"><span>		print(i)
+</span></span><span style="display:flex;"><span>		out <span style="color:#f92672">=</span> base_n_encode(out, ALPHABET<span style="color:#f92672">.</span>index(i))
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> out
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">decrypt</span>(bytes_in, key):
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> bytes_in
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> key:
+</span></span><span style="display:flex;"><span>		out <span style="color:#f92672">=</span> base_n_decode(out, ALPHABET<span style="color:#f92672">.</span>index(i))
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> out
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">flag_enc = encrypt(flag, key)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">f = open(&#34;flag_enc&#34;, &#34;wb&#34;)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">f.write(flag_enc)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">f.close()
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;</span>
+</span></span></code></pre></div><h4 id="flag_enc">flag_enc<a href="#flag_enc" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<p>The file can be found in the authors&rsquo; repository: <a href="https://github.com/sigpwny/UIUCTF-2021-Public/blob/master/crypto/back_to_basics/public/flag_enc"><code>flag_enc</code></a></p>
+<hr>
+<p>Let&rsquo;s look at the provided script:</p>
+<p>As first step the alphabet of the key is defined:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>ALPHABET <span style="color:#f92672">=</span> bytearray(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&#34;</span>)
+</span></span></code></pre></div><p><code>base_n_encode</code> reads the bytes of the given string as one big integer and expresses it in the given base.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">base_n_encode</span>(bytes_in, base):
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> mpz(bytes_to_long(bytes_in))<span style="color:#f92672">.</span>digits(base)<span style="color:#f92672">.</span>upper()<span style="color:#f92672">.</span>encode()
+</span></span></code></pre></div><p><code>base_n_decode</code> reads the string as string-representation of a big integer in the given base and returns the binary representation of this integer.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">base_n_decode</span>(bytes_in, base):
+</span></span><span style="display:flex;"><span>	bytes_out <span style="color:#f92672">=</span> to_binary(mpz(bytes_in, base<span style="color:#f92672">=</span>base))[:<span style="color:#ae81ff">1</span>:<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>]
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bytes_out
+</span></span></code></pre></div><p><code>encrypt</code> takes each char of the key and uses it as base for <code>base_n_encode</code>. For getting an integer base, the char is searched in the above alphabet and the position is used as base.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">encrypt</span>(bytes_in, key):
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> bytes_in
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> key:
+</span></span><span style="display:flex;"><span>		print(i)
+</span></span><span style="display:flex;"><span>		out <span style="color:#f92672">=</span> base_n_encode(out, ALPHABET<span style="color:#f92672">.</span>index(i))
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> out
+</span></span></code></pre></div><p><code>decrypt</code> takes each char of the key and uses in the same way as in <code>encode</code> for decoding the string with <code>base_n_decode</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">decrypt</span>(bytes_in, key):
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> bytes_in
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> key:
+</span></span><span style="display:flex;"><span>		out <span style="color:#f92672">=</span> base_n_decode(out, ALPHABET<span style="color:#f92672">.</span>index(i))
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> out
+</span></span></code></pre></div><p>Finally, there is a comment, which explains, how <code>flag_enc</code> was created:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>flag_enc <span style="color:#f92672">=</span> encrypt(flag, key)
+</span></span><span style="display:flex;"><span>f <span style="color:#f92672">=</span> open(<span style="color:#e6db74">&#34;flag_enc&#34;</span>, <span style="color:#e6db74">&#34;wb&#34;</span>)
+</span></span><span style="display:flex;"><span>f<span style="color:#f92672">.</span>write(flag_enc)
+</span></span><span style="display:flex;"><span>f<span style="color:#f92672">.</span>close()
+</span></span></code></pre></div><hr>
+<p>At the start some considerations:</p>
+<ul>
+<li><code>0</code> and <code>1</code> cannot be part of the string, as their indices in the alphabet (<code>0</code> &amp; <code>1</code>) are no bases</li>
+<li>The base of the encrypted text will always be greater than each char in the text, as all characters in a string with base <code>b</code> are from interval <code>[0, b-1]</code></li>
+</ul>
+<p>With this knowledge, we can start the decryption. First we need to load the encrypted flag:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">with</span> open(<span style="color:#e6db74">&#34;flag_enc&#34;</span>, <span style="color:#e6db74">&#34;rb&#34;</span>) <span style="color:#66d9ef">as</span> f:
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> f<span style="color:#f92672">.</span>read()
+</span></span></code></pre></div><p>For debug purposes we initialize some variables:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>round <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>key <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;</span>
+</span></span></code></pre></div><p>As we don&rsquo;t know when we are done, we first loop infinitely. Furthermore we want to keep our debug variable up to date.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
+</span></span><span style="display:flex;"><span>	round <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><p>First we determine the alphabet of the current string:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>	alphabet <span style="color:#f92672">=</span> set(out)
+</span></span></code></pre></div><p>We only need the maximum for determining the smallest possible base. And again some debug printing.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>	m <span style="color:#f92672">=</span> max(alphabet)
+</span></span><span style="display:flex;"><span>	print(<span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{}</span><span style="color:#e6db74">: used </span><span style="color:#e6db74">{}</span><span style="color:#e6db74">, </span><span style="color:#e6db74">{}</span><span style="color:#e6db74">&#34;</span><span style="color:#f92672">.</span>format(round, m, alphabet))
+</span></span></code></pre></div><p>Let&rsquo;s get the smallest base. If the char is not found, the script will fail at this point with an error.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>	b <span style="color:#f92672">=</span> ALPHABET<span style="color:#f92672">.</span>index(m) <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><p>Now we can determine whether the calculated base is in range.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> b <span style="color:#f92672">&gt;=</span> len(ALPHABET):
+</span></span><span style="display:flex;"><span>		print(<span style="color:#e6db74">&#34;no&#34;</span>)
+</span></span><span style="display:flex;"><span>		exit(<span style="color:#ae81ff">1</span>)
+</span></span></code></pre></div><p>Now we can test for all possible bases and collect possible indices</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>	indices <span style="color:#f92672">=</span> list()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(b, len(ALPHABET)):
+</span></span></code></pre></div><p>As the decryption can fail, and we don&rsquo;t want the script to be aborted, we have to wrap it in <code>try</code>. And again some debug printing.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>		<span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>			new_out <span style="color:#f92672">=</span> base_n_decode(out, i)
+</span></span><span style="display:flex;"><span>			print(max(new_out), min(new_out))
+</span></span></code></pre></div><p>As <code>#</code> cannot be in the string and as the chars build a continues block in ASCII, we can simply check the boundaries to determine whether the decrypted string matches our requirements and the index is a candidate:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> max(new_out) <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">90</span> <span style="color:#f92672">and</span> min(new_out) <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">48</span>:
+</span></span><span style="display:flex;"><span>				indices<span style="color:#f92672">.</span>append(i)
+</span></span></code></pre></div><p>Because the flag will have some additional chars outside this range, we also check if the decrypted string is a potential flag. For preventing spam, we also check the length and hope, that the flag is shorter than 100 chars. If not, we have to adjust the length.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> max(new_out) <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">125</span> <span style="color:#f92672">and</span> min(new_out) <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">48</span> <span style="color:#f92672">and</span> len(out) <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">100</span>:
+</span></span><span style="display:flex;"><span>				print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;key: </span><span style="color:#e6db74">{</span>key <span style="color:#f92672">+</span> chr(ALPHABET[i])<span style="color:#e6db74">}</span><span style="color:#e6db74">, possible flag: </span><span style="color:#e6db74">{</span>new_out<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>If the decryption fails, we don&rsquo;t want to do something. As python requires a statement in except, we do some useless assignment.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>		<span style="color:#66d9ef">except</span>:
+</span></span><span style="display:flex;"><span>			log <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><p>For proceeding, we need an index. Let&rsquo;s exit, if we haven&rsquo;t found one.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> len(indices) <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1</span>:
+</span></span><span style="display:flex;"><span>		print(<span style="color:#e6db74">&#34;no&#34;</span>)
+</span></span><span style="display:flex;"><span>		exit(<span style="color:#ae81ff">1</span>)
+</span></span></code></pre></div><p>Now we must select the index for the next round. As it is unlikely that the base is much higher than the maximum char in the string, we use the smallest working base. As we haven&rsquo;t stored the decrypted string, we have to decrypt it again. Furthermore we append the used character from the alphabet to the key. And again some debug printing.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> base_n_decode(out, indices[<span style="color:#ae81ff">0</span>])
+</span></span><span style="display:flex;"><span>	key <span style="color:#f92672">+=</span> chr(ALPHABET[indices[<span style="color:#ae81ff">0</span>]])
+</span></span><span style="display:flex;"><span>	print(key)
+</span></span><span style="display:flex;"><span>	print(indices)
+</span></span><span style="display:flex;"><span>	print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>round<span style="color:#e6db74">}</span><span style="color:#e6db74">: used </span><span style="color:#e6db74">{</span>chr(ALPHABET[b])<span style="color:#e6db74">}</span><span style="color:#e6db74">, len: </span><span style="color:#e6db74">{</span>len(out)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>The whole script looks as following:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.Util.number <span style="color:#f92672">import</span> long_to_bytes, bytes_to_long
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> gmpy2 <span style="color:#f92672">import</span> mpz, to_binary
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#from secret import flag, key</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ALPHABET <span style="color:#f92672">=</span> bytearray(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">base_n_encode</span>(bytes_in, base):
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> mpz(bytes_to_long(bytes_in))<span style="color:#f92672">.</span>digits(base)<span style="color:#f92672">.</span>upper()<span style="color:#f92672">.</span>encode()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">base_n_decode</span>(bytes_in, base):
+</span></span><span style="display:flex;"><span>	bytes_out <span style="color:#f92672">=</span> to_binary(mpz(bytes_in, base<span style="color:#f92672">=</span>base))[:<span style="color:#ae81ff">1</span>:<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>]
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bytes_out
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">encrypt</span>(bytes_in, key):
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> bytes_in
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> key:
+</span></span><span style="display:flex;"><span>		print(i)
+</span></span><span style="display:flex;"><span>		out <span style="color:#f92672">=</span> base_n_encode(out, ALPHABET<span style="color:#f92672">.</span>index(i))
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> out
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">decrypt</span>(bytes_in, key):
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> bytes_in
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> key:
+</span></span><span style="display:flex;"><span>		out <span style="color:#f92672">=</span> base_n_decode(out, ALPHABET<span style="color:#f92672">.</span>index(i))
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> out
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">with</span> open(<span style="color:#e6db74">&#34;flag_enc&#34;</span>, <span style="color:#e6db74">&#34;rb&#34;</span>) <span style="color:#66d9ef">as</span> f:
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> f<span style="color:#f92672">.</span>read()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>round <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>key <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
+</span></span><span style="display:flex;"><span>	round <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>	alphabet <span style="color:#f92672">=</span> set(out)
+</span></span><span style="display:flex;"><span>	m <span style="color:#f92672">=</span> max(alphabet)
+</span></span><span style="display:flex;"><span>	print(<span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{}</span><span style="color:#e6db74">: used </span><span style="color:#e6db74">{}</span><span style="color:#e6db74">, </span><span style="color:#e6db74">{}</span><span style="color:#e6db74">&#34;</span><span style="color:#f92672">.</span>format(round, m, alphabet))
+</span></span><span style="display:flex;"><span>	b <span style="color:#f92672">=</span> ALPHABET<span style="color:#f92672">.</span>index(m) <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> b <span style="color:#f92672">&gt;=</span> len(ALPHABET):
+</span></span><span style="display:flex;"><span>		print(<span style="color:#e6db74">&#34;no&#34;</span>)
+</span></span><span style="display:flex;"><span>		exit(<span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>	indices <span style="color:#f92672">=</span> list()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(b, len(ALPHABET)):
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>			new_out <span style="color:#f92672">=</span> base_n_decode(out, i)
+</span></span><span style="display:flex;"><span>			print(max(new_out), min(new_out))
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> max(new_out) <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">90</span> <span style="color:#f92672">and</span> min(new_out) <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">48</span>:
+</span></span><span style="display:flex;"><span>				indices<span style="color:#f92672">.</span>append(i)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> max(new_out) <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">125</span> <span style="color:#f92672">and</span> min(new_out) <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">48</span> <span style="color:#f92672">and</span> len(new_out) <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">100</span>:
+</span></span><span style="display:flex;"><span>				print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;key: </span><span style="color:#e6db74">{</span>key <span style="color:#f92672">+</span> chr(ALPHABET[i])<span style="color:#e6db74">}</span><span style="color:#e6db74">, possible flag: </span><span style="color:#e6db74">{</span>new_out<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">except</span>:
+</span></span><span style="display:flex;"><span>			log <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> len(indices) <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1</span>:
+</span></span><span style="display:flex;"><span>		print(<span style="color:#e6db74">&#34;no&#34;</span>)
+</span></span><span style="display:flex;"><span>		exit(<span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>	out <span style="color:#f92672">=</span> base_n_decode(out, indices[<span style="color:#ae81ff">0</span>])
+</span></span><span style="display:flex;"><span>	key <span style="color:#f92672">+=</span> chr(ALPHABET[indices[<span style="color:#ae81ff">0</span>]])
+</span></span><span style="display:flex;"><span>	print(key)
+</span></span><span style="display:flex;"><span>	print(indices)
+</span></span><span style="display:flex;"><span>	print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>round<span style="color:#e6db74">}</span><span style="color:#e6db74">: used </span><span style="color:#e6db74">{</span>chr(ALPHABET[b])<span style="color:#e6db74">}</span><span style="color:#e6db74">, len: </span><span style="color:#e6db74">{</span>len(out)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>In the output we find the flag (<code>b'uiuctf{r4DixAL}'</code>) and the corresponding key (<code>WM5Z8CRJABXJDJ5W</code>).</p>
+
+      </div></div>
+
+  
+  
+<div class="pagination">
+    <div class="pagination__title">
+        <span class="pagination__title-h">Read other posts</span>
+        <hr />
+    </div>
+    <div class="pagination__buttons">
+        
+        <span class="button previous">
+            <a href="https://ctf0.de/posts/uiuctf22-mom-can-we-have-aes/">
+                <span class="button__icon">←</span>
+                <span class="button__text">UIUCTF 2022: mom can we have AES</span>
+            </a>
+        </span>
+        
+        
+        <span class="button next">
+            <a href="https://ctf0.de/posts/uiuctf2021-dhke-intro/">
+                <span class="button__text">UIUCTF 2021: dhke_intro</span>
+                <span class="button__icon">→</span>
+            </a>
+        </span>
+        
+    </div>
+</div>
+
+  
+
+  
+
+</div>
+
+  </div>
+
+  
+    <footer class="footer">
+  <div class="footer__inner">
+    
+      <div class="copyright copyright--user">
+        <span>© 2021-2022 CyberTaskForce Zero</span>
+    
+        <span>:: Theme made by <a href="https://twitter.com/panr">panr</a></span>
+      </div>
+  </div>
+</footer>
+
+<script src="https://ctf0.de/assets/main.js"></script>
+<script src="https://ctf0.de/assets/prism.js"></script>
+
+
+
+
+
+
+
+  
+</div>
+
+</body>
+</html>
