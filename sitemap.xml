@@ -2,36 +2,39 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://ctf0.de/tags/aes/</loc>
+    <loc>/tags/aes/</loc>
     <lastmod>2022-08-01T13:27:00+02:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/tags/crypto/</loc>
+    <loc>/tags/crypto/</loc>
     <lastmod>2022-08-01T13:27:00+02:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/</loc>
+    <loc>/</loc>
     <lastmod>2022-08-01T13:27:00+02:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/posts/</loc>
+    <loc>/tags/net/</loc>
     <lastmod>2022-08-01T13:27:00+02:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/tags/</loc>
+    <loc>/posts/</loc>
     <lastmod>2022-08-01T13:27:00+02:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/posts/uiuctf22-mom-can-we-have-aes/</loc>
+    <loc>/tags/</loc>
     <lastmod>2022-08-01T13:27:00+02:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/about/</loc>
+    <loc>/posts/uiuctf2022-mom-can-we-have-aes/</loc>
+    <lastmod>2022-08-01T13:27:00+02:00</lastmod>
+  </url><url>
+    <loc>/about/</loc>
     <lastmod>2022-02-14T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/tags/beginner/</loc>
+    <loc>/tags/beginner/</loc>
     <lastmod>2021-08-03T23:59:13+01:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/posts/uiuctf2021-back-to-basics/</loc>
+    <loc>/posts/uiuctf2021-back-to-basics/</loc>
     <lastmod>2021-08-03T23:59:13+01:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/posts/uiuctf2021-dhke-intro/</loc>
+    <loc>/posts/uiuctf2021-dhke-intro/</loc>
     <lastmod>2021-08-03T23:59:13+01:00</lastmod>
   </url><url>
-    <loc>https://ctf0.de/categories/</loc>
+    <loc>/categories/</loc>
   </url>
 </urlset>

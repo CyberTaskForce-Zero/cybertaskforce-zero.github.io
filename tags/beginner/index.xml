@@ -2,18 +2,18 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>beginner on CyberTaskForce Zero</title>
-    <link>https://ctf0.de/tags/beginner/</link>
+    <link>/tags/beginner/</link>
     <description>Recent content in beginner on CyberTaskForce Zero</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
-    <lastBuildDate>Tue, 03 Aug 2021 23:59:13 +0100</lastBuildDate><atom:link href="https://ctf0.de/tags/beginner/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Tue, 03 Aug 2021 23:59:13 +0100</lastBuildDate><atom:link href="/tags/beginner/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>UIUCTF 2021: back_to_basics</title>
-      <link>https://ctf0.de/posts/uiuctf2021-back-to-basics/</link>
+      <link>/posts/uiuctf2021-back-to-basics/</link>
       <pubDate>Tue, 03 Aug 2021 23:59:13 +0100</pubDate>
       
-      <guid>https://ctf0.de/posts/uiuctf2021-back-to-basics/</guid>
+      <guid>/posts/uiuctf2021-back-to-basics/</guid>
       <description>Description: Shoutout to those people who think that base64 is proper encryption
 main.py from Crypto.Util.number import long_to_bytes, bytes_to_long from gmpy2 import mpz, to_binary #from secret import flag, key ALPHABET = bytearray(b&amp;#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&amp;#34;) def base_n_encode(bytes_in, base): return mpz(bytes_to_long(bytes_in)).digits(base).upper().encode() def base_n_decode(bytes_in, base): bytes_out = to_binary(mpz(bytes_in, base=base))[:1:-1] return bytes_out def encrypt(bytes_in, key): out = bytes_in for i in key: print(i) out = base_n_encode(out, ALPHABET.index(i)) return out def decrypt(bytes_in, key): out = bytes_in for i in key: out = base_n_decode(out, ALPHABET.</description>
       <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
@@ -200,10 +200,10 @@ main.py from Crypto.Util.number import long_to_bytes, bytes_to_long from gmpy2 i
     
     <item>
       <title>UIUCTF 2021: dhke_intro</title>
-      <link>https://ctf0.de/posts/uiuctf2021-dhke-intro/</link>
+      <link>/posts/uiuctf2021-dhke-intro/</link>
       <pubDate>Tue, 03 Aug 2021 23:59:13 +0100</pubDate>
       
-      <guid>https://ctf0.de/posts/uiuctf2021-dhke-intro/</guid>
+      <guid>/posts/uiuctf2021-dhke-intro/</guid>
       <description>Description: Small numbers are bad in cryptography. This is why.
 dhkectf_intro.py import random from Crypto.Cipher import AES # generate key gpList = [ [13, 19], [7, 17], [3, 31], [13, 19], [17, 23], [2, 29] ] g, p = random.choice(gpList) a = random.randint(1, p) b = random.randint(1, p) k = pow(g, a * b, p) k = str(k) # print(&amp;#34;Diffie-Hellman key exchange outputs&amp;#34;) # print(&amp;#34;Public key: &amp;#34;, g, p) # print(&amp;#34;Jotaro sends: &amp;#34;, aNum) # print(&amp;#34;Dio sends: &amp;#34;, bNum) # print() # pad key to 16 bytes (128bit) key = &amp;#34;&amp;#34; i = 0 padding = &amp;#34;uiuctf2021uiuctf2021&amp;#34; while (16 - len(key) !</description>
       <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
