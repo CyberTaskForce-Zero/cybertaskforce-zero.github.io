@@ -142,9 +142,9 @@
         <h4 id="description">Description:<a href="#description" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
 <p>Show me your wordle skills!</p>
 <p>Task author: rixxc|RedRocket</p>
-<pre><code>nc scamble.rumble.host 2568
+<pre tabindex="0"><code>nc scamble.rumble.host 2568
 </code></pre><p>The service running looks like this:</p>
-<pre><code class="language-python=" data-lang="python=">#!/usr/bin/env python3
+<pre tabindex="0"><code class="language-python=" data-lang="python=">#!/usr/bin/env python3
 
 import random
 import string
@@ -158,30 +158,30 @@ rng = random.SystemRandom()
 
 
 def game(secret_word, wordlist):
-    print(&quot;[start game]&quot;)
+    print(&#34;[start game]&#34;)
     chars = set(secret_word)
 
     for guess_count in range(1, 7):
-        guess = input(&quot;&gt; &quot;)[:5]
+        guess = input(&#34;&gt; &#34;)[:5]
         assert(len(guess) == 5)
         assert(guess in wordlist)
 
         if guess == secret_word:
-            print(&quot;[guess correct]&gt; &quot;)
+            print(&#34;[guess correct]&gt; &#34;)
             break
 
-        result = &quot;&quot;
+        result = &#34;&#34;
         for i in range(5):
             if guess[i] == secret_word[i]:
-                result += &quot;+&quot;
+                result += &#34;+&#34;
             elif guess[i] in chars:
-                result += &quot;*&quot;
+                result += &#34;*&#34;
             else:
-                result += &quot;-&quot;
+                result += &#34;-&#34;
 
         print(result)
     else:
-        print(&quot;[number of guesses exceeded]&gt; &quot;)
+        print(&#34;[number of guesses exceeded]&gt; &#34;)
 
     return guess_count
 
@@ -189,14 +189,14 @@ def game(secret_word, wordlist):
 def main():
     wordlist = set()
     while len(wordlist) &lt; SIZE_OF_WORDLIST:
-        word = ''.join(rng.choices(string.ascii_uppercase, weights=[7.58, 1.96, 3.16, 4.98, 18.93, 1.49, 3.02, 4.98, 8.02, 0.24, 1.32, 3.60, 2.55, 12.53, 2.24, 0.67, 0.02, 6.89, 8.42, 7.79, 3.83, 0.84, 1.78, 0.05, 0.05, 1.21], k=5))
+        word = &#39;&#39;.join(rng.choices(string.ascii_uppercase, weights=[7.58, 1.96, 3.16, 4.98, 18.93, 1.49, 3.02, 4.98, 8.02, 0.24, 1.32, 3.60, 2.55, 12.53, 2.24, 0.67, 0.02, 6.89, 8.42, 7.79, 3.83, 0.84, 1.78, 0.05, 0.05, 1.21], k=5))
         wordlist.add(word)
 
-    print(&quot;Here is your personal wordlist:&quot;)
-    print(&quot;[begin of wordlist]&quot;)
+    print(&#34;Here is your personal wordlist:&#34;)
+    print(&#34;[begin of wordlist]&#34;)
     for word in wordlist:
         print(word)
-    print(&quot;[end of wordlist]&quot;)
+    print(&#34;[end of wordlist]&#34;)
 
     guesses = []
     for _ in range(NUMBER_OF_GAMES):
@@ -204,19 +204,19 @@ def main():
         guesses.append(game(secret_word, wordlist))
 
     average_guesses = sum(guesses) / NUMBER_OF_GAMES
-    print(f'avg.: {average_guesses}')
+    print(f&#39;avg.: {average_guesses}&#39;)
     if average_guesses &lt; THRESHOLD:
         print(FLAG)
 
 
-if __name__ == '__main__':
+if __name__ == &#39;__main__&#39;:
     main()
 </code></pre><p>Summarized we need to solve a game of wordle 100 times with an average guess num of less than 5.
 This is humanely possible, but not in the given timeframe, therefore we need to automize it.</p>
 <p>We found an article about <a href="https://aditya-sengupta.github.io/coding/2022/01/13/wordle.html">entropy-based wordle solving</a> from Aditya Sengupta and an implementation in the Julia programming language.</p>
 <p>Then we rewrote his <a href="https://github.com/aditya-sengupta/wordle-solver/blob/main/src/WordleSolver.jl">wordle-solver</a> in python:</p>
 <p><code>// wordle_doer.py</code></p>
-<pre><code class="language-python=" data-lang="python=">from collections import Counter
+<pre tabindex="0"><code class="language-python=" data-lang="python=">from collections import Counter
 from scipy.stats import entropy
 import string
 
@@ -233,9 +233,9 @@ class WordleDoer:
     def guessToList(self, guess):
         result = [None] * self.wordlength
         conversionMap = {
-            '+': 2,
-            '*': 1,
-            '-': 0
+            &#39;+&#39;: 2,
+            &#39;*&#39;: 1,
+            &#39;-&#39;: 0
         }
         for i in range(0, 5):
             result[i] = conversionMap[guess[i]]
@@ -244,16 +244,16 @@ class WordleDoer:
 
 
     def listToGuess(self, list: list):
-        guess = ['-'] * 5
+        guess = [&#39;-&#39;] * 5
         conversionMap = {
-            2: '+',
-            1: '*',
-            0: '-'
+            2: &#39;+&#39;,
+            1: &#39;*&#39;,
+            0: &#39;-&#39;
         }
         for i in range(0, 5):
             guess[i] = conversionMap[list[i]]
 
-        return ''.join(guess)
+        return &#39;&#39;.join(guess)
 
 
     def constrain(self, query, result):
@@ -283,7 +283,7 @@ class WordleDoer:
             return self.first_guess
 
         is_known = [all(x[i] == self.corpus[0][i] for x in self.corpus) for i in range(0, self.wordlength)]
-        word_so_far = &quot;&quot;.join([self.corpus[0][j] if is_known[j] else '0' for j in range(0, self.wordlength)])
+        word_so_far = &#34;&#34;.join([self.corpus[0][j] if is_known[j] else &#39;0&#39; for j in range(0, self.wordlength)])
         char_occurences = {}
         for char in string.ascii_uppercase:
             char_occurences[char] = [sum([word[j].count(char) for word in self.corpus]) for j in range(0, self.wordlength)]
@@ -329,45 +329,45 @@ class WordleDoer:
 </ul>
 <p>Because we need to win 100 games with high reliability, we needed to automize it:
 <code>doit.py</code></p>
-<pre><code class="language-python=" data-lang="python=">#!/usr/bin/python
+<pre tabindex="0"><code class="language-python=" data-lang="python=">#!/usr/bin/python
 
 from pwn import *
 from wordle_doer import WordleDoer
 import re
 
-r = remote(&quot;scamble.rumble.host&quot;, 2568)
-#r = remote(&quot;localhost&quot;, 2568)
+r = remote(&#34;scamble.rumble.host&#34;, 2568)
+#r = remote(&#34;localhost&#34;, 2568)
 
-rateMatcher = re.compile(&quot;\s?[\*+-]{5}\s?&quot;)
+rateMatcher = re.compile(&#34;\s?[\*+-]{5}\s?&#34;)
 
-r.recvuntil(b&quot;[begin of wordlist]\n&quot;)
-wordlist = [word.decode() for word in r.recvuntil(b&quot;[end of wordlist]\n&quot;, True).splitlines(False)]
+r.recvuntil(b&#34;[begin of wordlist]\n&#34;)
+wordlist = [word.decode() for word in r.recvuntil(b&#34;[end of wordlist]\n&#34;, True).splitlines(False)]
 
 solver = WordleDoer(wordlist, 5)
 
 while True:
-    start = r.recvuntil([b&quot;avg.:&quot;, b&quot;[start game]&quot;])
-    if start.startswith(b&quot;avg.:&quot;):
+    start = r.recvuntil([b&#34;avg.:&#34;, b&#34;[start game]&#34;])
+    if start.startswith(b&#34;avg.:&#34;):
         print(start)
         print(r.recvline())
         break
-    print(&quot;Game started&quot;)
+    print(&#34;Game started&#34;)
     solver.reset()
     while True:
         guess = solver.choose()
         if len(guess) != 5:
             print(solver.corpus)
-        print(&quot;My guess: '&quot; + guess + '&quot;')
-        command = r.recvuntil(b&quot;&gt; &quot;, True)
-        print(b&quot;command: &quot; + command)
-        if b&quot;[guess correct]&quot; in command or b&quot;[number of guesses exceeded]&quot; in command:
+        print(&#34;My guess: &#39;&#34; + guess + &#39;&#34;&#39;)
+        command = r.recvuntil(b&#34;&gt; &#34;, True)
+        print(b&#34;command: &#34; + command)
+        if b&#34;[guess correct]&#34; in command or b&#34;[number of guesses exceeded]&#34; in command:
             break
         r.sendline(guess.encode())
-        response = r.recvline().decode().replace(&quot;\n&quot;, &quot;&quot;)
+        response = r.recvline().decode().replace(&#34;\n&#34;, &#34;&#34;)
         if not rateMatcher.match(response):
-            print(&quot;Start anew: &quot; + response)
+            print(&#34;Start anew: &#34; + response)
             break
-        print(&quot;Response: '&quot; + response + &quot;'&quot;)
+        print(&#34;Response: &#39;&#34; + response + &#34;&#39;&#34;)
         solver.constrain(guess, response)
 </code></pre><p>That&rsquo;s it!</p>
 

@@ -146,9 +146,9 @@
 <p>Challenge author: Skipper|RedRocket</p>
 <p><img src="/img/csr22_bus_sniffer.png" alt=""></p>
 <p>We get:</p>
-<pre><code>90K recording.sr
+<pre tabindex="0"><code>90K recording.sr
 </code></pre><p><em>one <code>unzip</code> later</em></p>
-<pre><code> 10M logic-1-1
+<pre tabindex="0"><code> 10M logic-1-1
  10M logic-1-2
  10M logic-1-3
  10M logic-1-4
@@ -160,7 +160,7 @@
  201 metadata
  90K recording.sr
    1 version
-</code></pre><pre><code># cat metadata
+</code></pre><pre tabindex="0"><code># cat metadata
 
 [global]
 sigrok version=0.5.2
@@ -184,7 +184,7 @@ unitsize=1
 <p>D7 looks like a clock pulse.
 When googling &ldquo;clock bus protocol&rdquo; <strong>I²C</strong> seems to pop up quite often.
 I try adding a decoder using the sigrok-cli:</p>
-<pre><code># sigrok -i ~/ctf/csr22/miscmeplx/recording.sr -P i2c:scl=D7:sda=D6 | grep &quot;Data write&quot;
+<pre tabindex="0"><code># sigrok -i ~/ctf/csr22/miscmeplx/recording.sr -P i2c:scl=D7:sda=D6 | grep &#34;Data write&#34;
 i2c-1: Data write: 69
 i2c-1: Data write: 6E
 i2c-1: Data write: 69
