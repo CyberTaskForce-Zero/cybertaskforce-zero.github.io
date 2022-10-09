@@ -9,6 +9,250 @@
     <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
     <lastBuildDate>Mon, 14 Feb 2022 00:00:00 +0000</lastBuildDate><atom:link href="/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>Cyber Security Rumble 2022 - Scramble</title>
+      <link>/posts/csr22-scramble/</link>
+      <pubDate>Sun, 09 Oct 2022 00:20:13 +0100</pubDate>
+      
+      <guid>/posts/csr22-scramble/</guid>
+      <description>Description: Show me your wordle skills!
+Task author: rixxc|RedRocket
+nc scamble.rumble.host 2568 The service running looks like this:
+#!/usr/bin/env python3 import random import string from secret import FLAG NUMBER_OF_GAMES = 100 THRESHOLD = 5 SIZE_OF_WORDLIST = 12000 rng = random.SystemRandom() def game(secret_word, wordlist): print(&amp;quot;[start game]&amp;quot;) chars = set(secret_word) for guess_count in range(1, 7): guess = input(&amp;quot;&amp;gt; &amp;quot;)[:5] assert(len(guess) == 5) assert(guess in wordlist) if guess == secret_word: print(&amp;quot;[guess correct]&amp;gt; &amp;quot;) break result = &amp;quot;&amp;quot; for i in range(5): if guess[i] == secret_word[i]: result += &amp;quot;+&amp;quot; elif guess[i] in chars: result += &amp;quot;*&amp;quot; else: result += &amp;quot;-&amp;quot; print(result) else: print(&amp;quot;[number of guesses exceeded]&amp;gt; &amp;quot;) return guess_count def main(): wordlist = set() while len(wordlist) &amp;lt; SIZE_OF_WORDLIST: word = &#39;&#39;.</description>
+      <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
+&lt;p&gt;Show me your wordle skills!&lt;/p&gt;
+&lt;p&gt;Task author: rixxc|RedRocket&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;nc scamble.rumble.host 2568
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;The service running looks like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python=&#34; data-lang=&#34;python=&#34;&gt;#!/usr/bin/env python3
+
+import random
+import string
+from secret import FLAG
+
+NUMBER_OF_GAMES = 100
+THRESHOLD = 5
+SIZE_OF_WORDLIST = 12000
+
+rng = random.SystemRandom()
+
+
+def game(secret_word, wordlist):
+    print(&amp;quot;[start game]&amp;quot;)
+    chars = set(secret_word)
+
+    for guess_count in range(1, 7):
+        guess = input(&amp;quot;&amp;gt; &amp;quot;)[:5]
+        assert(len(guess) == 5)
+        assert(guess in wordlist)
+
+        if guess == secret_word:
+            print(&amp;quot;[guess correct]&amp;gt; &amp;quot;)
+            break
+
+        result = &amp;quot;&amp;quot;
+        for i in range(5):
+            if guess[i] == secret_word[i]:
+                result += &amp;quot;+&amp;quot;
+            elif guess[i] in chars:
+                result += &amp;quot;*&amp;quot;
+            else:
+                result += &amp;quot;-&amp;quot;
+
+        print(result)
+    else:
+        print(&amp;quot;[number of guesses exceeded]&amp;gt; &amp;quot;)
+
+    return guess_count
+
+
+def main():
+    wordlist = set()
+    while len(wordlist) &amp;lt; SIZE_OF_WORDLIST:
+        word = &#39;&#39;.join(rng.choices(string.ascii_uppercase, weights=[7.58, 1.96, 3.16, 4.98, 18.93, 1.49, 3.02, 4.98, 8.02, 0.24, 1.32, 3.60, 2.55, 12.53, 2.24, 0.67, 0.02, 6.89, 8.42, 7.79, 3.83, 0.84, 1.78, 0.05, 0.05, 1.21], k=5))
+        wordlist.add(word)
+
+    print(&amp;quot;Here is your personal wordlist:&amp;quot;)
+    print(&amp;quot;[begin of wordlist]&amp;quot;)
+    for word in wordlist:
+        print(word)
+    print(&amp;quot;[end of wordlist]&amp;quot;)
+
+    guesses = []
+    for _ in range(NUMBER_OF_GAMES):
+        secret_word = rng.choice(list(wordlist))
+        guesses.append(game(secret_word, wordlist))
+
+    average_guesses = sum(guesses) / NUMBER_OF_GAMES
+    print(f&#39;avg.: {average_guesses}&#39;)
+    if average_guesses &amp;lt; THRESHOLD:
+        print(FLAG)
+
+
+if __name__ == &#39;__main__&#39;:
+    main()
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Summarized we need to solve a game of wordle 100 times with an average guess num of less than 5.
+This is humanely possible, but not in the given timeframe, therefore we need to automize it.&lt;/p&gt;
+&lt;p&gt;We found an article about &lt;a href=&#34;https://aditya-sengupta.github.io/coding/2022/01/13/wordle.html&#34;&gt;entropy-based wordle solving&lt;/a&gt; from Aditya Sengupta and an implementation in the Julia programming language.&lt;/p&gt;
+&lt;p&gt;Then we rewrote his &lt;a href=&#34;https://github.com/aditya-sengupta/wordle-solver/blob/main/src/WordleSolver.jl&#34;&gt;wordle-solver&lt;/a&gt; in python:&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;// wordle_doer.py&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python=&#34; data-lang=&#34;python=&#34;&gt;from collections import Counter
+from scipy.stats import entropy
+import string
+
+class WordleDoer:
+    def __init__(self, wordlist, wordlength) -&amp;gt; None:
+        self.wordlist = wordlist
+        self.wordlength = wordlength
+        self.corpus = []
+        self.first_guess = None
+
+    def reset(self):
+        self.corpus = self.wordlist
+
+    def guessToList(self, guess):
+        result = [None] * self.wordlength
+        conversionMap = {
+            &#39;+&#39;: 2,
+            &#39;*&#39;: 1,
+            &#39;-&#39;: 0
+        }
+        for i in range(0, 5):
+            result[i] = conversionMap[guess[i]]
+
+        return result
+
+
+    def listToGuess(self, list: list):
+        guess = [&#39;-&#39;] * 5
+        conversionMap = {
+            2: &#39;+&#39;,
+            1: &#39;*&#39;,
+            0: &#39;-&#39;
+        }
+        for i in range(0, 5):
+            guess[i] = conversionMap[list[i]]
+
+        return &#39;&#39;.join(guess)
+
+
+    def constrain(self, query, result):
+        self.corpus = [word for word in self.corpus if self.guess(query, word) == result]
+
+
+    def guess(self, query, word):
+        result = [0] * self.wordlength
+
+        for i in range(0, self.wordlength):
+            if word[i] == query[i]:
+                result[i] = 2
+
+        for i in range(0, self.wordlength):
+            if query[i] in word and result[i] != 2:
+                result[i] = 1
+
+        return self.listToGuess(result)
+
+    def choose(self):
+        print(len(self.corpus))
+        if len(self.corpus) == 0:
+            return None
+        if len(self.corpus) == 1:
+            return self.corpus[0]
+        if self.first_guess is not None and len(self.corpus) == len(self.wordlist):
+            return self.first_guess
+
+        is_known = [all(x[i] == self.corpus[0][i] for x in self.corpus) for i in range(0, self.wordlength)]
+        word_so_far = &amp;quot;&amp;quot;.join([self.corpus[0][j] if is_known[j] else &#39;0&#39; for j in range(0, self.wordlength)])
+        char_occurences = {}
+        for char in string.ascii_uppercase:
+            char_occurences[char] = [sum([word[j].count(char) for word in self.corpus]) for j in range(0, self.wordlength)]
+        best_word = self.corpus[0]
+        best_diff_entropy = 0
+        for word in self.corpus:
+            diff_entropy = 0
+            seen_chars = set()
+            for (i, char) in enumerate(word):
+                greens = char_occurences[char][i]
+                if not (char in seen_chars):
+                    mask = [ch != char for ch in word_so_far]
+                    yellows = sum([char_occurences[char][i] for i in range(0, self.wordlength) if mask[i]]) - greens
+                    seen_chars.add(char)
+                else:
+                    yellows = 0
+                greys = len(self.corpus) - yellows - greens
+                dist = [greens, yellows, greys]
+                sumdist = sum(dist)
+                dist = [entry / sumdist for entry in dist]
+                diff_entropy = diff_entropy + entropy(dist)
+            if diff_entropy &amp;gt;= best_diff_entropy:
+                best_diff_entropy = diff_entropy
+                best_word = word
+
+        if self.first_guess is None:
+            self.first_guess = best_word
+
+        return best_word
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Our implementation has the following changes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;We are caching the first guess, because
+&lt;ul&gt;
+&lt;li&gt;the wordlist doesn&amp;rsquo;t change between games&lt;/li&gt;
+&lt;li&gt;the first guess takes up the most time&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;We dumbed down the &lt;code&gt;guess&lt;/code&gt; method to match the given game
+&lt;ul&gt;
+&lt;li&gt;The game implementation does not Count occurences&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Because we need to win 100 games with high reliability, we needed to automize it:
+&lt;code&gt;doit.py&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python=&#34; data-lang=&#34;python=&#34;&gt;#!/usr/bin/python
+
+from pwn import *
+from wordle_doer import WordleDoer
+import re
+
+r = remote(&amp;quot;scamble.rumble.host&amp;quot;, 2568)
+#r = remote(&amp;quot;localhost&amp;quot;, 2568)
+
+rateMatcher = re.compile(&amp;quot;\s?[\*+-]{5}\s?&amp;quot;)
+
+r.recvuntil(b&amp;quot;[begin of wordlist]\n&amp;quot;)
+wordlist = [word.decode() for word in r.recvuntil(b&amp;quot;[end of wordlist]\n&amp;quot;, True).splitlines(False)]
+
+solver = WordleDoer(wordlist, 5)
+
+while True:
+    start = r.recvuntil([b&amp;quot;avg.:&amp;quot;, b&amp;quot;[start game]&amp;quot;])
+    if start.startswith(b&amp;quot;avg.:&amp;quot;):
+        print(start)
+        print(r.recvline())
+        break
+    print(&amp;quot;Game started&amp;quot;)
+    solver.reset()
+    while True:
+        guess = solver.choose()
+        if len(guess) != 5:
+            print(solver.corpus)
+        print(&amp;quot;My guess: &#39;&amp;quot; + guess + &#39;&amp;quot;&#39;)
+        command = r.recvuntil(b&amp;quot;&amp;gt; &amp;quot;, True)
+        print(b&amp;quot;command: &amp;quot; + command)
+        if b&amp;quot;[guess correct]&amp;quot; in command or b&amp;quot;[number of guesses exceeded]&amp;quot; in command:
+            break
+        r.sendline(guess.encode())
+        response = r.recvline().decode().replace(&amp;quot;\n&amp;quot;, &amp;quot;&amp;quot;)
+        if not rateMatcher.match(response):
+            print(&amp;quot;Start anew: &amp;quot; + response)
+            break
+        print(&amp;quot;Response: &#39;&amp;quot; + response + &amp;quot;&#39;&amp;quot;)
+        solver.constrain(guess, response)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;That&amp;rsquo;s it!&lt;/p&gt;
+</content>
+    </item>
+    
+    <item>
       <title>Cyber Security Rumble 2022 - Misc Me Plx</title>
       <link>/posts/csr22-misc-me-plx/</link>
       <pubDate>Sat, 08 Oct 2022 23:59:13 +0100</pubDate>

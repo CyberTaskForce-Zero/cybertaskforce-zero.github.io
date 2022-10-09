@@ -3,27 +3,32 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>/posts/csr22-scramble/</loc>
+    <lastmod>2022-10-09T00:20:13+01:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/misc/</loc>
+    <lastmod>2022-10-09T00:20:13+01:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/posts/</loc>
+    <lastmod>2022-10-09T00:20:13+01:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/</loc>
+    <lastmod>2022-10-09T00:20:13+01:00</lastmod>
+  </url>
+  
+  <url>
     <loc>/tags/beginner/</loc>
     <lastmod>2022-10-08T23:59:13+01:00</lastmod>
   </url>
   
   <url>
     <loc>/posts/csr22-misc-me-plx/</loc>
-    <lastmod>2022-10-08T23:59:13+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/misc/</loc>
-    <lastmod>2022-10-08T23:59:13+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/posts/</loc>
-    <lastmod>2022-10-08T23:59:13+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/</loc>
     <lastmod>2022-10-08T23:59:13+01:00</lastmod>
   </url>
   
