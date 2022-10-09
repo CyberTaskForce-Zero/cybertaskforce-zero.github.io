@@ -146,509 +146,260 @@
         <p>The challenge consists of two services communicating with each other: <a href="https://2022.uiuc.tf/files/db45f0c6d5e88ae21c97ba4641f6971d/server.py"><code>server.py</code></a> on port 1337 and <a href="https://2022.uiuc.tf/files/ebccf298bcd26b5b2258ec4279202f2f/client.py"><code>client.py</code></a> on port 1338.</p>
 <h1 id="services">Services<a href="#services" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>Most part of the provided services is used for initializing AES, which is done with a protocol very similar to TLS. In the following I will explain the initialization in the order of the communication and will therefore switch between <code>client.py</code> and <code>server.py</code>.</p>
+<pre><code class="language-goat" data-lang="goat">.--------.                            .--------.
+| client |                            | server |
+'--------'                            '--------'
+    |              AES modes               |
+    | -----------------------------------&gt; |
+    |            client random             |
+    | -----------------------------------&gt; |
+    |                                      |
+    |       signed hash of certificate     |
+    | &lt;----------------------------------- |
+    |              AES modes               |
+    | &lt;----------------------------------- |
+    |            server random             |
+    | &lt;----------------------------------- |
+    |                                      |
+    |    RSA encrypted premaster secret    |
+    | -----------------------------------&gt; |
+    |               AES mode               |
+    | -----------------------------------&gt; |
+    |         AES encrypted finish         |
+    | -----------------------------------&gt; |
+    |                                      |
 
+</code></pre><p>Both scripts start with the same imports and by defining the supported AES modes:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#f92672">from</span> Crypto.Util.Padding <span style="color:#f92672">import</span> pad, unpad
+<span style="color:#f92672">from</span> Crypto.PublicKey <span style="color:#f92672">import</span> RSA
+<span style="color:#f92672">from</span> Crypto.Cipher <span style="color:#f92672">import</span> AES, PKCS1_OAEP
+<span style="color:#f92672">from</span> Crypto.Hash <span style="color:#f92672">import</span> SHA256
+<span style="color:#f92672">from</span> Crypto.Signature <span style="color:#f92672">import</span> PKCS1_v1_5
 
+<span style="color:#f92672">import</span> random
+<span style="color:#f92672">import</span> string
 
-<div class="goat svg-container ">
-  
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      font-family="Menlo,Lucida Console,monospace"
-      
-        viewBox="0 0 392 361"
-      >
-      <g transform='translate(8,16)'>
-<path d='M 0,0 L 72,0' fill='none' stroke='currentColor'></path>
-<path d='M 304,0 L 376,0' fill='none' stroke='currentColor'></path>
-<path d='M 0,32 L 72,32' fill='none' stroke='currentColor'></path>
-<path d='M 304,32 L 376,32' fill='none' stroke='currentColor'></path>
-<path d='M 48,64 L 328,64' fill='none' stroke='currentColor'></path>
-<path d='M 48,96 L 328,96' fill='none' stroke='currentColor'></path>
-<path d='M 48,144 L 328,144' fill='none' stroke='currentColor'></path>
-<path d='M 48,176 L 328,176' fill='none' stroke='currentColor'></path>
-<path d='M 48,208 L 328,208' fill='none' stroke='currentColor'></path>
-<path d='M 48,256 L 328,256' fill='none' stroke='currentColor'></path>
-<path d='M 48,288 L 328,288' fill='none' stroke='currentColor'></path>
-<path d='M 48,320 L 328,320' fill='none' stroke='currentColor'></path>
-<path d='M 0,0 L 0,32' fill='none' stroke='currentColor'></path>
-<path d='M 32,48 L 32,336' fill='none' stroke='currentColor'></path>
-<path d='M 72,0 L 72,32' fill='none' stroke='currentColor'></path>
-<path d='M 304,0 L 304,32' fill='none' stroke='currentColor'></path>
-<path d='M 344,48 L 344,336' fill='none' stroke='currentColor'></path>
-<path d='M 376,0 L 376,32' fill='none' stroke='currentColor'></path>
-<path d='M 32,40 L 32,48' fill='none' stroke='currentColor'></path>
-<path d='M 344,40 L 344,48' fill='none' stroke='currentColor'></path>
-<polygon points='56.000000,144.000000 44.000000,138.399994 44.000000,149.600006' fill='currentColor' transform='rotate(180.000000, 48.000000, 144.000000)'></polygon>
-<polygon points='56.000000,176.000000 44.000000,170.399994 44.000000,181.600006' fill='currentColor' transform='rotate(180.000000, 48.000000, 176.000000)'></polygon>
-<polygon points='56.000000,208.000000 44.000000,202.399994 44.000000,213.600006' fill='currentColor' transform='rotate(180.000000, 48.000000, 208.000000)'></polygon>
-<polygon points='336.000000,64.000000 324.000000,58.400002 324.000000,69.599998' fill='currentColor' transform='rotate(0.000000, 328.000000, 64.000000)'></polygon>
-<polygon points='336.000000,96.000000 324.000000,90.400002 324.000000,101.599998' fill='currentColor' transform='rotate(0.000000, 328.000000, 96.000000)'></polygon>
-<polygon points='336.000000,256.000000 324.000000,250.399994 324.000000,261.600006' fill='currentColor' transform='rotate(0.000000, 328.000000, 256.000000)'></polygon>
-<polygon points='336.000000,288.000000 324.000000,282.399994 324.000000,293.600006' fill='currentColor' transform='rotate(0.000000, 328.000000, 288.000000)'></polygon>
-<polygon points='336.000000,320.000000 324.000000,314.399994 324.000000,325.600006' fill='currentColor' transform='rotate(0.000000, 328.000000, 320.000000)'></polygon>
-<text text-anchor='middle' x='16' y='20' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='24' y='20' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='32' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='40' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='48' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='56' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='72' y='244' fill='currentColor' style='font-size:1em'>R</text>
-<text text-anchor='middle' x='80' y='244' fill='currentColor' style='font-size:1em'>S</text>
-<text text-anchor='middle' x='88' y='244' fill='currentColor' style='font-size:1em'>A</text>
-<text text-anchor='middle' x='96' y='132' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='104' y='132' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='104' y='244' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='112' y='132' fill='currentColor' style='font-size:1em'>g</text>
-<text text-anchor='middle' x='112' y='244' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='112' y='308' fill='currentColor' style='font-size:1em'>A</text>
-<text text-anchor='middle' x='120' y='132' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='120' y='244' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='120' y='308' fill='currentColor' style='font-size:1em'>E</text>
-<text text-anchor='middle' x='128' y='132' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='128' y='244' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='128' y='308' fill='currentColor' style='font-size:1em'>S</text>
-<text text-anchor='middle' x='136' y='84' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='136' y='132' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='136' y='196' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='136' y='244' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='144' y='84' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='144' y='196' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='144' y='244' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='144' y='308' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='152' y='52' fill='currentColor' style='font-size:1em'>A</text>
-<text text-anchor='middle' x='152' y='84' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='152' y='132' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='152' y='164' fill='currentColor' style='font-size:1em'>A</text>
-<text text-anchor='middle' x='152' y='196' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='152' y='244' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='152' y='308' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='160' y='52' fill='currentColor' style='font-size:1em'>E</text>
-<text text-anchor='middle' x='160' y='84' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='160' y='132' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='160' y='164' fill='currentColor' style='font-size:1em'>E</text>
-<text text-anchor='middle' x='160' y='196' fill='currentColor' style='font-size:1em'>v</text>
-<text text-anchor='middle' x='160' y='244' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='160' y='276' fill='currentColor' style='font-size:1em'>A</text>
-<text text-anchor='middle' x='160' y='308' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='168' y='52' fill='currentColor' style='font-size:1em'>S</text>
-<text text-anchor='middle' x='168' y='84' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='168' y='132' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='168' y='164' fill='currentColor' style='font-size:1em'>S</text>
-<text text-anchor='middle' x='168' y='196' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='168' y='244' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='168' y='276' fill='currentColor' style='font-size:1em'>E</text>
-<text text-anchor='middle' x='168' y='308' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='176' y='84' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='176' y='132' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='176' y='196' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='176' y='276' fill='currentColor' style='font-size:1em'>S</text>
-<text text-anchor='middle' x='176' y='308' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='184' y='52' fill='currentColor' style='font-size:1em'>m</text>
-<text text-anchor='middle' x='184' y='164' fill='currentColor' style='font-size:1em'>m</text>
-<text text-anchor='middle' x='184' y='244' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='184' y='308' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='192' y='52' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='192' y='84' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='192' y='132' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='192' y='164' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='192' y='196' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='192' y='244' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='192' y='276' fill='currentColor' style='font-size:1em'>m</text>
-<text text-anchor='middle' x='192' y='308' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='200' y='52' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='200' y='84' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='200' y='132' fill='currentColor' style='font-size:1em'>f</text>
-<text text-anchor='middle' x='200' y='164' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='200' y='196' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='200' y='244' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='200' y='276' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='200' y='308' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='208' y='52' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='208' y='84' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='208' y='164' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='208' y='196' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='208' y='244' fill='currentColor' style='font-size:1em'>m</text>
-<text text-anchor='middle' x='208' y='276' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='208' y='308' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='216' y='52' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='216' y='84' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='216' y='132' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='216' y='164' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='216' y='196' fill='currentColor' style='font-size:1em'>d</text>
-<text text-anchor='middle' x='216' y='244' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='216' y='276' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='224' y='84' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='224' y='132' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='224' y='196' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='224' y='244' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='224' y='308' fill='currentColor' style='font-size:1em'>f</text>
-<text text-anchor='middle' x='232' y='84' fill='currentColor' style='font-size:1em'>m</text>
-<text text-anchor='middle' x='232' y='132' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='232' y='196' fill='currentColor' style='font-size:1em'>m</text>
-<text text-anchor='middle' x='232' y='244' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='232' y='308' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='240' y='132' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='240' y='244' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='240' y='308' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='248' y='132' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='248' y='244' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='248' y='308' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='256' y='132' fill='currentColor' style='font-size:1em'>f</text>
-<text text-anchor='middle' x='256' y='308' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='264' y='132' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='264' y='244' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='264' y='308' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='272' y='132' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='272' y='244' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='280' y='132' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='280' y='244' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='288' y='132' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='288' y='244' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='296' y='132' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='296' y='244' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='304' y='244' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='320' y='20' fill='currentColor' style='font-size:1em'>s</text>
-<text text-anchor='middle' x='328' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='336' y='20' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='344' y='20' fill='currentColor' style='font-size:1em'>v</text>
-<text text-anchor='middle' x='352' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='360' y='20' fill='currentColor' style='font-size:1em'>r</text>
-</g>
+<span style="color:#f92672">from</span> fields <span style="color:#f92672">import</span> cert, block_size
+<span style="color:#f92672">from</span> secret <span style="color:#f92672">import</span> flag
 
-    </svg>
-  
-</div>
-<p>Both scripts start with the same imports and by defining the supported AES modes:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.Util.Padding <span style="color:#f92672">import</span> pad, unpad
-</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.PublicKey <span style="color:#f92672">import</span> RSA
-</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.Cipher <span style="color:#f92672">import</span> AES, PKCS1_OAEP
-</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.Hash <span style="color:#f92672">import</span> SHA256
-</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.Signature <span style="color:#f92672">import</span> PKCS1_v1_5
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> random
-</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> string
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> fields <span style="color:#f92672">import</span> cert, block_size
-</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> secret <span style="color:#f92672">import</span> flag
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>cipher_suite <span style="color:#f92672">=</span> {<span style="color:#e6db74">&#34;AES.MODE_CBC&#34;</span> : AES<span style="color:#f92672">.</span>MODE_CBC, <span style="color:#e6db74">&#34;AES.MODE_CTR&#34;</span> : AES<span style="color:#f92672">.</span>MODE_CTR, <span style="color:#e6db74">&#34;AES.MODE_EAX&#34;</span> : AES<span style="color:#f92672">.</span>MODE_EAX, <span style="color:#e6db74">&#34;AES.MODE_GCM&#34;</span> : AES<span style="color:#f92672">.</span>MODE_GCM,  <span style="color:#e6db74">&#34;AES.MODE_ECB&#34;</span> : AES<span style="color:#f92672">.</span>MODE_ECB}
-</span></span></code></pre></div><p>The initialization begins at the client by generating four random characters and sending them together with the supported AES modes to the server. TLS uses much larger random values (32 byte) and will send some additional information such as the protocol version.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## Client Hello ##########</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Cipher suite</span>
-</span></span><span style="display:flex;"><span>print(<span style="color:#f92672">*</span>cipher_suite<span style="color:#f92672">.</span>keys(), sep<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;, &#39;</span>)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>client_random <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">.</span>join(random<span style="color:#f92672">.</span>SystemRandom()<span style="color:#f92672">.</span>choice(string<span style="color:#f92672">.</span>ascii_uppercase <span style="color:#f92672">+</span> string<span style="color:#f92672">.</span>digits) <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">4</span>))
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Client random</span>
-</span></span><span style="display:flex;"><span>print(client_random)
-</span></span></code></pre></div><p>The server receives both and stores them for later use.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## Client Hello ##########</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Enter encryption methods</span>
-</span></span><span style="display:flex;"><span>input_encryptions_suite <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span>client_cipher_suite <span style="color:#f92672">=</span> input_encryptions_suite<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;, &#34;</span>)
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Enter client random</span>
-</span></span><span style="display:flex;"><span>client_random <span style="color:#f92672">=</span> input()
-</span></span></code></pre></div><p>Now the server proceeds with sending his own hello, starting with a signed hash of his certificate. In TLS, the server would send the actual certificate and a signed hash of all previous messages.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## Server Hello ##########</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Certificate</span>
-</span></span><span style="display:flex;"><span>private_key <span style="color:#f92672">=</span> RSA<span style="color:#f92672">.</span>import_key(open(<span style="color:#e6db74">&#34;my_credit_card_number.pem&#34;</span>)<span style="color:#f92672">.</span>read())
-</span></span><span style="display:flex;"><span>cipher_hash <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new(cert)
-</span></span><span style="display:flex;"><span>signature <span style="color:#f92672">=</span> PKCS1_v1_5<span style="color:#f92672">.</span>new(private_key)<span style="color:#f92672">.</span>sign(cipher_hash)
-</span></span><span style="display:flex;"><span><span style="color:#75715e">#Signed certificate</span>
-</span></span><span style="display:flex;"><span>print(signature<span style="color:#f92672">.</span>hex())
-</span></span></code></pre></div><p>After that the server computes the intersection of the AES modes supported by him and the client and sends the resulting list back to the client. In TLS, the server chooses one of the ciphers that is understood by client and server and sends only the selected cipher to the client.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># select cipher suite</span>
-</span></span><span style="display:flex;"><span>selected_cipher_suite <span style="color:#f92672">=</span> {}
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> method <span style="color:#f92672">in</span> cipher_suite:
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> method <span style="color:#f92672">in</span> client_cipher_suite:
-</span></span><span style="display:flex;"><span>        selected_cipher_suite[method] <span style="color:#f92672">=</span> cipher_suite[method]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> len(selected_cipher_suite) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>:
-</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;Honey, we have a problem. I&#39;m sorry but I&#39;m disowning you :(&#34;</span>)
-</span></span><span style="display:flex;"><span>    exit()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Selected cipher suite</span>
-</span></span><span style="display:flex;"><span>print(<span style="color:#f92672">*</span>selected_cipher_suite<span style="color:#f92672">.</span>keys(), sep<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;, &#39;</span>)
-</span></span></code></pre></div><p>Finally, the server generates four random characters and sends them to the client. As with the client random, TLS will generate a 32 byte long random value.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>server_random <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">.</span>join(random<span style="color:#f92672">.</span>SystemRandom()<span style="color:#f92672">.</span>choice(string<span style="color:#f92672">.</span>ascii_uppercase <span style="color:#f92672">+</span> string<span style="color:#f92672">.</span>digits) <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">4</span>))
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Server random</span>
-</span></span><span style="display:flex;"><span>print(server_random)
-</span></span></code></pre></div><p>Now back to the client. It first loads the preshared public key of the server and verifies the signature. As the certificate is preshared in this case, the server didn&rsquo;t have to send it. Furthermore in TLS the public key would be read from the certificate and not from a separate file. As an alternative to certificates, TLS supports the Diffie-Hellman key exchange, which is covered in last years UIUCTF challenge <a href="https://ctftime.org/writeup/34637"><code>dhke_intro</code></a>.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## Server Hello ##########</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># verify server</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Enter signed certificate</span>
-</span></span><span style="display:flex;"><span>server_signature_hex <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span>server_signature <span style="color:#f92672">=</span> bytearray<span style="color:#f92672">.</span>fromhex(server_signature_hex)
-</span></span><span style="display:flex;"><span>public_key <span style="color:#f92672">=</span> RSA<span style="color:#f92672">.</span>import_key(open(<span style="color:#e6db74">&#34;receiver.pem&#34;</span>)<span style="color:#f92672">.</span>read())
-</span></span><span style="display:flex;"><span>cipher_hash <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new(cert)
-</span></span><span style="display:flex;"><span>verifier <span style="color:#f92672">=</span> PKCS1_v1_5<span style="color:#f92672">.</span>new(public_key)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> verifier<span style="color:#f92672">.</span>verify(cipher_hash, server_signature):
-</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;Mom told me not to talk to strangers.&#34;</span>)
-</span></span><span style="display:flex;"><span>    exit()
-</span></span></code></pre></div><p>As next step, the client parses the cipher suits supported by the server.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Enter selected cipher suite</span>
-</span></span><span style="display:flex;"><span>input_encryptions_suite <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> len(input_encryptions_suite) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>:
-</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34; nO SeCUriTY :/&#34;</span>)
-</span></span><span style="display:flex;"><span>    exit()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>selected_cipher_suite <span style="color:#f92672">=</span> {}
-</span></span><span style="display:flex;"><span>input_encryptions_suite <span style="color:#f92672">=</span> input_encryptions_suite<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;, &#34;</span>)
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> method <span style="color:#f92672">in</span> input_encryptions_suite:
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> method <span style="color:#f92672">in</span> cipher_suite:
-</span></span><span style="display:flex;"><span>        selected_cipher_suite[method] <span style="color:#f92672">=</span> cipher_suite[method]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> len(selected_cipher_suite) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>:
-</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;I&#39;m a rebellious kid who refuses to talk to people who don&#39;t speak my language.&#34;</span>)
-</span></span><span style="display:flex;"><span>    exit()
-</span></span></code></pre></div><p>As last part of the parsing of the server hello, the random characters from the server are stored for later use.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Enter server random</span>
-</span></span><span style="display:flex;"><span>server_random <span style="color:#f92672">=</span> input()
-</span></span></code></pre></div><p>As next step, the client initializes AES, starting with the generation of the premaster secret. This is then encrypted and send to the server. As in previous cases, the premaster secret of TLS is larger and uses 48 bytes.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>premaster_secret <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">.</span>join(random<span style="color:#f92672">.</span>SystemRandom()<span style="color:#f92672">.</span>choice(string<span style="color:#f92672">.</span>ascii_uppercase <span style="color:#f92672">+</span> string<span style="color:#f92672">.</span>digits) <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">8</span>))
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>cipher_rsa <span style="color:#f92672">=</span> PKCS1_OAEP<span style="color:#f92672">.</span>new(public_key)
-</span></span><span style="display:flex;"><span>premaster_secret_encrypted <span style="color:#f92672">=</span> cipher_rsa<span style="color:#f92672">.</span>encrypt(premaster_secret<span style="color:#f92672">.</span>encode())<span style="color:#f92672">.</span>hex()
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Encrypted premaster secret</span>
-</span></span><span style="display:flex;"><span>print(premaster_secret_encrypted)
-</span></span></code></pre></div><p>Then the session key is computed from the previously generated premaster secret and both random values.
+cipher_suite <span style="color:#f92672">=</span> {<span style="color:#e6db74">&#34;AES.MODE_CBC&#34;</span> : AES<span style="color:#f92672">.</span>MODE_CBC, <span style="color:#e6db74">&#34;AES.MODE_CTR&#34;</span> : AES<span style="color:#f92672">.</span>MODE_CTR, <span style="color:#e6db74">&#34;AES.MODE_EAX&#34;</span> : AES<span style="color:#f92672">.</span>MODE_EAX, <span style="color:#e6db74">&#34;AES.MODE_GCM&#34;</span> : AES<span style="color:#f92672">.</span>MODE_GCM,  <span style="color:#e6db74">&#34;AES.MODE_ECB&#34;</span> : AES<span style="color:#f92672">.</span>MODE_ECB}
+</code></pre></div><p>The initialization begins at the client by generating four random characters and sending them together with the supported AES modes to the server. TLS uses much larger random values (32 byte) and will send some additional information such as the protocol version.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## Client Hello ##########</span>
+<span style="color:#75715e"># Cipher suite</span>
+<span style="color:#66d9ef">print</span>(<span style="color:#f92672">*</span>cipher_suite<span style="color:#f92672">.</span>keys(), sep<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;, &#39;</span>)
+
+client_random <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">.</span>join(random<span style="color:#f92672">.</span>SystemRandom()<span style="color:#f92672">.</span>choice(string<span style="color:#f92672">.</span>ascii_uppercase <span style="color:#f92672">+</span> string<span style="color:#f92672">.</span>digits) <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">4</span>))
+<span style="color:#75715e"># Client random</span>
+<span style="color:#66d9ef">print</span>(client_random)
+</code></pre></div><p>The server receives both and stores them for later use.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## Client Hello ##########</span>
+<span style="color:#75715e"># Enter encryption methods</span>
+input_encryptions_suite <span style="color:#f92672">=</span> input()
+client_cipher_suite <span style="color:#f92672">=</span> input_encryptions_suite<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;, &#34;</span>)
+<span style="color:#75715e"># Enter client random</span>
+client_random <span style="color:#f92672">=</span> input()
+</code></pre></div><p>Now the server proceeds with sending his own hello, starting with a signed hash of his certificate. In TLS, the server would send the actual certificate and a signed hash of all previous messages.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## Server Hello ##########</span>
+
+<span style="color:#75715e"># Certificate</span>
+private_key <span style="color:#f92672">=</span> RSA<span style="color:#f92672">.</span>import_key(open(<span style="color:#e6db74">&#34;my_credit_card_number.pem&#34;</span>)<span style="color:#f92672">.</span>read())
+cipher_hash <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new(cert)
+signature <span style="color:#f92672">=</span> PKCS1_v1_5<span style="color:#f92672">.</span>new(private_key)<span style="color:#f92672">.</span>sign(cipher_hash)
+<span style="color:#75715e">#Signed certificate</span>
+<span style="color:#66d9ef">print</span>(signature<span style="color:#f92672">.</span>hex())
+</code></pre></div><p>After that the server computes the intersection of the AES modes supported by him and the client and sends the resulting list back to the client. In TLS, the server chooses one of the ciphers that is understood by client and server and sends only the selected cipher to the client.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e"># select cipher suite</span>
+selected_cipher_suite <span style="color:#f92672">=</span> {}
+<span style="color:#66d9ef">for</span> method <span style="color:#f92672">in</span> cipher_suite:
+    <span style="color:#66d9ef">if</span> method <span style="color:#f92672">in</span> client_cipher_suite:
+        selected_cipher_suite[method] <span style="color:#f92672">=</span> cipher_suite[method]
+
+<span style="color:#66d9ef">if</span> len(selected_cipher_suite) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>:
+    <span style="color:#66d9ef">print</span>(<span style="color:#e6db74">&#34;Honey, we have a problem. I&#39;m sorry but I&#39;m disowning you :(&#34;</span>)
+    exit()
+
+<span style="color:#75715e"># Selected cipher suite</span>
+<span style="color:#66d9ef">print</span>(<span style="color:#f92672">*</span>selected_cipher_suite<span style="color:#f92672">.</span>keys(), sep<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;, &#39;</span>)
+</code></pre></div><p>Finally, the server generates four random characters and sends them to the client. As with the client random, TLS will generate a 32 byte long random value.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">server_random <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">.</span>join(random<span style="color:#f92672">.</span>SystemRandom()<span style="color:#f92672">.</span>choice(string<span style="color:#f92672">.</span>ascii_uppercase <span style="color:#f92672">+</span> string<span style="color:#f92672">.</span>digits) <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">4</span>))
+<span style="color:#75715e"># Server random</span>
+<span style="color:#66d9ef">print</span>(server_random)
+</code></pre></div><p>Now back to the client. It first loads the preshared public key of the server and verifies the signature. As the certificate is preshared in this case, the server didn&rsquo;t have to send it. Furthermore in TLS the public key would be read from the certificate and not from a separate file. As an alternative to certificates, TLS supports the Diffie-Hellman key exchange, which is covered in last years UIUCTF challenge <a href="/posts/uiuctf2021-dhke-intro/"><code>dhke_intro</code></a>.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## Server Hello ##########</span>
+
+<span style="color:#75715e"># verify server</span>
+<span style="color:#75715e"># Enter signed certificate</span>
+server_signature_hex <span style="color:#f92672">=</span> input()
+server_signature <span style="color:#f92672">=</span> bytearray<span style="color:#f92672">.</span>fromhex(server_signature_hex)
+public_key <span style="color:#f92672">=</span> RSA<span style="color:#f92672">.</span>import_key(open(<span style="color:#e6db74">&#34;receiver.pem&#34;</span>)<span style="color:#f92672">.</span>read())
+cipher_hash <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new(cert)
+verifier <span style="color:#f92672">=</span> PKCS1_v1_5<span style="color:#f92672">.</span>new(public_key)
+
+<span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> verifier<span style="color:#f92672">.</span>verify(cipher_hash, server_signature):
+    <span style="color:#66d9ef">print</span>(<span style="color:#e6db74">&#34;Mom told me not to talk to strangers.&#34;</span>)
+    exit()
+</code></pre></div><p>As next step, the client parses the cipher suits supported by the server.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e"># Enter selected cipher suite</span>
+input_encryptions_suite <span style="color:#f92672">=</span> input()
+<span style="color:#66d9ef">if</span> len(input_encryptions_suite) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>:
+    <span style="color:#66d9ef">print</span>(<span style="color:#e6db74">&#34; nO SeCUriTY :/&#34;</span>)
+    exit()
+
+selected_cipher_suite <span style="color:#f92672">=</span> {}
+input_encryptions_suite <span style="color:#f92672">=</span> input_encryptions_suite<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;, &#34;</span>)
+<span style="color:#66d9ef">for</span> method <span style="color:#f92672">in</span> input_encryptions_suite:
+    <span style="color:#66d9ef">if</span> method <span style="color:#f92672">in</span> cipher_suite:
+        selected_cipher_suite[method] <span style="color:#f92672">=</span> cipher_suite[method]
+
+<span style="color:#66d9ef">if</span> len(selected_cipher_suite) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>:
+    <span style="color:#66d9ef">print</span>(<span style="color:#e6db74">&#34;I&#39;m a rebellious kid who refuses to talk to people who don&#39;t speak my language.&#34;</span>)
+    exit()
+</code></pre></div><p>As last part of the parsing of the server hello, the random characters from the server are stored for later use.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e"># Enter server random</span>
+server_random <span style="color:#f92672">=</span> input()
+</code></pre></div><p>As next step, the client initializes AES, starting with the generation of the premaster secret. This is then encrypted and send to the server. As in previous cases, the premaster secret of TLS is larger and uses 48 bytes.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">premaster_secret <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">.</span>join(random<span style="color:#f92672">.</span>SystemRandom()<span style="color:#f92672">.</span>choice(string<span style="color:#f92672">.</span>ascii_uppercase <span style="color:#f92672">+</span> string<span style="color:#f92672">.</span>digits) <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">8</span>))
+
+cipher_rsa <span style="color:#f92672">=</span> PKCS1_OAEP<span style="color:#f92672">.</span>new(public_key)
+premaster_secret_encrypted <span style="color:#f92672">=</span> cipher_rsa<span style="color:#f92672">.</span>encrypt(premaster_secret<span style="color:#f92672">.</span>encode())<span style="color:#f92672">.</span>hex()
+<span style="color:#75715e"># Encrypted premaster secret</span>
+<span style="color:#66d9ef">print</span>(premaster_secret_encrypted)
+</code></pre></div><p>Then the session key is computed from the previously generated premaster secret and both random values.
 Because the premaster secret is send encrypted, the session key is only known to the client and server. The use of client and server random prevents replay attacks, as the target of the replay will choose a different one. This is especially true for TLS, since 4 of the 32 bytes of the client and server random are the current timestamp.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>session_key <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new((client_random <span style="color:#f92672">+</span> server_random <span style="color:#f92672">+</span> premaster_secret)<span style="color:#f92672">.</span>encode())<span style="color:#f92672">.</span>hexdigest()
-</span></span></code></pre></div><p>Now the client chooses one of the ciphers supported by client and server and informs the server about the selected cipher.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>chosen_cipher_name <span style="color:#f92672">=</span> next(iter(selected_cipher_suite))
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Using encryption mode</span>
-</span></span><span style="display:flex;"><span>print(chosen_cipher_name)
-</span></span><span style="display:flex;"><span>cipher <span style="color:#f92672">=</span> AES<span style="color:#f92672">.</span>new(session_key<span style="color:#f92672">.</span>encode()[:<span style="color:#ae81ff">16</span>], cipher_suite[chosen_cipher_name])
-</span></span></code></pre></div><p>The server receives the premaster secret, decrypts it with its private key and uses it to calculate the same session key.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## ClientKeyExchange &amp; CipherSpec Finished ##########</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Enter premaster secret</span>
-</span></span><span style="display:flex;"><span>encrypted_premaster_secret <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span>cipher_rsa <span style="color:#f92672">=</span> PKCS1_OAEP<span style="color:#f92672">.</span>new(private_key)
-</span></span><span style="display:flex;"><span>premaster_secret <span style="color:#f92672">=</span> cipher_rsa<span style="color:#f92672">.</span>decrypt(bytearray<span style="color:#f92672">.</span>fromhex(encrypted_premaster_secret))<span style="color:#f92672">.</span>decode(<span style="color:#e6db74">&#39;utf-8&#39;</span>)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>session_key <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new((client_random <span style="color:#f92672">+</span> server_random <span style="color:#f92672">+</span> premaster_secret)<span style="color:#f92672">.</span>encode())<span style="color:#f92672">.</span>hexdigest()
-</span></span></code></pre></div><p>After that, the server will check wether the selected cipher is one of the supported ones and will then initialize AES with the session key and the selected mode.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Enter chosen cipher</span>
-</span></span><span style="display:flex;"><span>chosen_cipher_name <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> chosen_cipher_name <span style="color:#f92672">not</span> <span style="color:#f92672">in</span> selected_cipher_suite:
-</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;No honey, I told you we&#39;re not getting &#34;</span>, chosen_cipher_name, <span style="color:#e6db74">&#39;.&#39;</span>, sep<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;&#39;</span>)
-</span></span><span style="display:flex;"><span>    exit()
-</span></span><span style="display:flex;"><span>cipher <span style="color:#f92672">=</span> AES<span style="color:#f92672">.</span>new(session_key<span style="color:#f92672">.</span>encode()[:<span style="color:#ae81ff">16</span>], cipher_suite[chosen_cipher_name])
-</span></span></code></pre></div><p>Finally the client sends an AES encrypted <code>finish</code> to the server.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Encrypted finish message</span>
-</span></span><span style="display:flex;"><span>print(cipher<span style="color:#f92672">.</span>encrypt(pad(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;finish&#34;</span>, block_size))<span style="color:#f92672">.</span>hex())
-</span></span></code></pre></div><p>The server decrypts the <code>finish</code> and checks wether it is correct. This is a final proof, that both sides have calculated the same session key.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Enter encrypted finish</span>
-</span></span><span style="display:flex;"><span>client_finish <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span>client_finish <span style="color:#f92672">=</span> bytearray<span style="color:#f92672">.</span>fromhex(client_finish)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">########## ServerKeyExchange &amp; CipherSpec Finished ##########</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>finish_msg <span style="color:#f92672">=</span> unpad(cipher<span style="color:#f92672">.</span>decrypt(client_finish), block_size)
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">assert</span>(finish_msg <span style="color:#f92672">==</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#39;finish&#39;</span>)
-</span></span></code></pre></div><p>In TLS, the server would also send a finish message over the encrypted channel to proof the client the it has the same session key. In this challenge, the message is not send but the client wants to receive an unencrypted <code>finish</code> and checks it.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## ServerKeyExchange &amp; CipherSpec Finished ##########</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Confirm finish</span>
-</span></span><span style="display:flex;"><span>finish_msg <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">assert</span>(finish_msg <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;finish&#34;</span>)
-</span></span></code></pre></div><p>Now the connection is established and the contents can be exchanged.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">session_key <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new((client_random <span style="color:#f92672">+</span> server_random <span style="color:#f92672">+</span> premaster_secret)<span style="color:#f92672">.</span>encode())<span style="color:#f92672">.</span>hexdigest()
+</code></pre></div><p>Now the client chooses one of the ciphers supported by client and server and informs the server about the selected cipher.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">chosen_cipher_name <span style="color:#f92672">=</span> next(iter(selected_cipher_suite))
+<span style="color:#75715e"># Using encryption mode</span>
+<span style="color:#66d9ef">print</span>(chosen_cipher_name)
+cipher <span style="color:#f92672">=</span> AES<span style="color:#f92672">.</span>new(session_key<span style="color:#f92672">.</span>encode()[:<span style="color:#ae81ff">16</span>], cipher_suite[chosen_cipher_name])
+</code></pre></div><p>The server receives the premaster secret, decrypts it with its private key and uses it to calculate the same session key.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## ClientKeyExchange &amp; CipherSpec Finished ##########</span>
+<span style="color:#75715e"># Enter premaster secret</span>
+encrypted_premaster_secret <span style="color:#f92672">=</span> input()
+cipher_rsa <span style="color:#f92672">=</span> PKCS1_OAEP<span style="color:#f92672">.</span>new(private_key)
+premaster_secret <span style="color:#f92672">=</span> cipher_rsa<span style="color:#f92672">.</span>decrypt(bytearray<span style="color:#f92672">.</span>fromhex(encrypted_premaster_secret))<span style="color:#f92672">.</span>decode(<span style="color:#e6db74">&#39;utf-8&#39;</span>)
+
+session_key <span style="color:#f92672">=</span> SHA256<span style="color:#f92672">.</span>new((client_random <span style="color:#f92672">+</span> server_random <span style="color:#f92672">+</span> premaster_secret)<span style="color:#f92672">.</span>encode())<span style="color:#f92672">.</span>hexdigest()
+</code></pre></div><p>After that, the server will check wether the selected cipher is one of the supported ones and will then initialize AES with the session key and the selected mode.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e"># Enter chosen cipher</span>
+chosen_cipher_name <span style="color:#f92672">=</span> input()
+<span style="color:#66d9ef">if</span> chosen_cipher_name <span style="color:#f92672">not</span> <span style="color:#f92672">in</span> selected_cipher_suite:
+    <span style="color:#66d9ef">print</span>(<span style="color:#e6db74">&#34;No honey, I told you we&#39;re not getting &#34;</span>, chosen_cipher_name, <span style="color:#e6db74">&#39;.&#39;</span>, sep<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;&#39;</span>)
+    exit()
+cipher <span style="color:#f92672">=</span> AES<span style="color:#f92672">.</span>new(session_key<span style="color:#f92672">.</span>encode()[:<span style="color:#ae81ff">16</span>], cipher_suite[chosen_cipher_name])
+</code></pre></div><p>Finally the client sends an AES encrypted <code>finish</code> to the server.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e"># Encrypted finish message</span>
+<span style="color:#66d9ef">print</span>(cipher<span style="color:#f92672">.</span>encrypt(pad(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;finish&#34;</span>, block_size))<span style="color:#f92672">.</span>hex())
+</code></pre></div><p>The server decrypts the <code>finish</code> and checks wether it is correct. This is a final proof, that both sides have calculated the same session key.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e"># Enter encrypted finish</span>
+client_finish <span style="color:#f92672">=</span> input()
+client_finish <span style="color:#f92672">=</span> bytearray<span style="color:#f92672">.</span>fromhex(client_finish)
+
+<span style="color:#75715e">########## ServerKeyExchange &amp; CipherSpec Finished ##########</span>
+
+finish_msg <span style="color:#f92672">=</span> unpad(cipher<span style="color:#f92672">.</span>decrypt(client_finish), block_size)
+<span style="color:#66d9ef">assert</span>(finish_msg <span style="color:#f92672">==</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#39;finish&#39;</span>)
+</code></pre></div><p>In TLS, the server would also send a finish message over the encrypted channel to proof the client the it has the same session key. In this challenge, the message is not send but the client wants to receive an unencrypted <code>finish</code> and checks it.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## ServerKeyExchange &amp; CipherSpec Finished ##########</span>
+<span style="color:#75715e"># Confirm finish</span>
+finish_msg <span style="color:#f92672">=</span> input()
+<span style="color:#66d9ef">assert</span>(finish_msg <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;finish&#34;</span>)
+</code></pre></div><p>Now the connection is established and the contents can be exchanged.</p>
 <p>The server checks each message if it exactly matches the flag and prints a message indicating the result.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## Communication ##########</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Listening...</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
-</span></span><span style="display:flex;"><span>    client_msg <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span>    client_msg <span style="color:#f92672">=</span> unpad(cipher<span style="color:#f92672">.</span>decrypt(bytearray<span style="color:#f92672">.</span>fromhex(client_msg)), block_size)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> client_msg <span style="color:#f92672">==</span> flag:
-</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;That is correct.&#34;</span>)
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
-</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;You are not my son.&#34;</span>)
-</span></span></code></pre></div><p>This has little to no interest for us, since we would have to guess the whole flag at once, which is way to much effort. We can only use it to verify the flag.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## Communication ##########</span>
+
+<span style="color:#75715e"># Listening...</span>
+<span style="color:#66d9ef">while</span> True:
+    client_msg <span style="color:#f92672">=</span> input()
+    client_msg <span style="color:#f92672">=</span> unpad(cipher<span style="color:#f92672">.</span>decrypt(bytearray<span style="color:#f92672">.</span>fromhex(client_msg)), block_size)
+
+    <span style="color:#66d9ef">if</span> client_msg <span style="color:#f92672">==</span> flag:
+        <span style="color:#66d9ef">print</span>(<span style="color:#e6db74">&#34;That is correct.&#34;</span>)
+    <span style="color:#66d9ef">else</span>:
+        <span style="color:#66d9ef">print</span>(<span style="color:#e6db74">&#34;You are not my son.&#34;</span>)
+</code></pre></div><p>This has little to no interest for us, since we would have to guess the whole flag at once, which is way to much effort. We can only use it to verify the flag.</p>
 <p>The client is much more useful. It requests a hex-encoded prefix, appends the flag to the decoded prefix and prints the AES encrypted result.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">########## Communication ##########</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
-</span></span><span style="display:flex;"><span>    prefix <span style="color:#f92672">=</span> input()
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> len(prefix) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>:
-</span></span><span style="display:flex;"><span>        prefix <span style="color:#f92672">=</span> bytearray<span style="color:#f92672">.</span>fromhex(prefix)
-</span></span><span style="display:flex;"><span>        extended_flag <span style="color:#f92672">=</span> prefix <span style="color:#f92672">+</span> flag
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
-</span></span><span style="display:flex;"><span>        extended_flag <span style="color:#f92672">=</span> flag
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    ciphertext <span style="color:#f92672">=</span> cipher<span style="color:#f92672">.</span>encrypt(pad(extended_flag, block_size))<span style="color:#f92672">.</span>hex()
-</span></span><span style="display:flex;"><span>    print(str(ciphertext))
-</span></span></code></pre></div><p>This enables us to brute force the flag character by character, which can be done in a few minutes.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e">########## Communication ##########</span>
+
+<span style="color:#66d9ef">while</span> True:
+    prefix <span style="color:#f92672">=</span> input()
+    <span style="color:#66d9ef">if</span> len(prefix) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>:
+        prefix <span style="color:#f92672">=</span> bytearray<span style="color:#f92672">.</span>fromhex(prefix)
+        extended_flag <span style="color:#f92672">=</span> prefix <span style="color:#f92672">+</span> flag
+    <span style="color:#66d9ef">else</span>:
+        extended_flag <span style="color:#f92672">=</span> flag
+    
+    ciphertext <span style="color:#f92672">=</span> cipher<span style="color:#f92672">.</span>encrypt(pad(extended_flag, block_size))<span style="color:#f92672">.</span>hex()
+    <span style="color:#66d9ef">print</span>(str(ciphertext))
+</code></pre></div><p>This enables us to brute force the flag character by character, which can be done in a few minutes.</p>
 <h1 id="exploit">Exploit<a href="#exploit" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>For solving the challenge, we used pwntools&rsquo; <a href="https://docs.pwntools.com/en/stable/tubes/sockets.html#pwnlib.tubes.remote.remote"><code>remote</code></a> for the communication with the services and python&rsquo;s <code>string</code> to obtain a list of flag characters.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> string
-</span></span></code></pre></div><p>First we have to initialize the connection to the client. Therefore we connect to the client and server and relay the messages from the server to the client and vice versa.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
+<span style="color:#f92672">import</span> string
+</code></pre></div><p>First we have to initialize the connection to the client. Therefore we connect to the client and server and relay the messages from the server to the client and vice versa.</p>
 <p>After connecting to the services,</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_services</span>():
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># connect to server and client</span>
-</span></span><span style="display:flex;"><span>    server <span style="color:#f92672">=</span> remote(<span style="color:#e6db74">&#34;mom-can-we-have-aes.chal.uiuc.tf&#34;</span>, <span style="color:#ae81ff">1337</span>)
-</span></span><span style="display:flex;"><span>    client <span style="color:#f92672">=</span> remote(<span style="color:#e6db74">&#34;mom-can-we-have-aes.chal.uiuc.tf&#34;</span>, <span style="color:#ae81ff">1338</span>)
-</span></span></code></pre></div><p>the services will send <code>== proof-of-work: disabled ==\n</code>, which we have to skip, since this is not part of the protocol.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># skip proof of work message</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>recvline()
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>recvline()
-</span></span></code></pre></div><p>As first message, the client will send us the supported AES modes. As we want to use ECB, we drop the received list and send only <code>AES.MODE_ECB</code> to the server. We will explain this decision later, when we actually use the properties of this mode.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># AES modes</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>recvline()
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>sendline(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;AES.MODE_ECB&#34;</span>)
-</span></span></code></pre></div><p>The remaining initialization can be relayed.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># client random</span>
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># server signature</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>send(server<span style="color:#f92672">.</span>recvline())
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># server AES mode</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>send(server<span style="color:#f92672">.</span>recvline())
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># server random</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>send(server<span style="color:#f92672">.</span>recvline())
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># client encrypted premaster secret</span>
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># client chosen AES mode</span>
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># client finish</span>
-</span></span><span style="display:flex;"><span>    finish <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>send(finish)
-</span></span></code></pre></div><p>Since the client expects a plain text <code>finish</code> and the server does not send it, we must send it ourselves. After that we have a server and a client in their main loop, which can be returned.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># send finish for client</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>sendline(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;finish&#34;</span>)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> server, client
-</span></span></code></pre></div><p>Now we come to the actual exploit and the chosen AES mode.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_services</span>():
+    <span style="color:#75715e"># connect to server and client</span>
+    server <span style="color:#f92672">=</span> remote(<span style="color:#e6db74">&#34;mom-can-we-have-aes.chal.uiuc.tf&#34;</span>, <span style="color:#ae81ff">1337</span>)
+    client <span style="color:#f92672">=</span> remote(<span style="color:#e6db74">&#34;mom-can-we-have-aes.chal.uiuc.tf&#34;</span>, <span style="color:#ae81ff">1338</span>)
+</code></pre></div><p>the services will send <code>== proof-of-work: disabled ==\n</code>, which we have to skip, since this is not part of the protocol.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># skip proof of work message</span>
+    client<span style="color:#f92672">.</span>recvline()
+    server<span style="color:#f92672">.</span>recvline()
+</code></pre></div><p>As first message, the client will send us the supported AES modes. As we want to use ECB, we drop the received list and send only <code>AES.MODE_ECB</code> to the server. We will explain this decision later, when we actually use the properties of this mode.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># AES modes</span>
+    client<span style="color:#f92672">.</span>recvline()
+    server<span style="color:#f92672">.</span>sendline(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;AES.MODE_ECB&#34;</span>)
+</code></pre></div><p>The remaining initialization can be relayed.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># client random</span>
+    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
+
+    <span style="color:#75715e"># server signature</span>
+    client<span style="color:#f92672">.</span>send(server<span style="color:#f92672">.</span>recvline())
+
+    <span style="color:#75715e"># server AES mode</span>
+    client<span style="color:#f92672">.</span>send(server<span style="color:#f92672">.</span>recvline())
+
+    <span style="color:#75715e"># server random</span>
+    client<span style="color:#f92672">.</span>send(server<span style="color:#f92672">.</span>recvline())
+
+    <span style="color:#75715e"># client encrypted premaster secret</span>
+    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
+
+    <span style="color:#75715e"># client chosen AES mode</span>
+    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
+
+    <span style="color:#75715e"># client finish</span>
+    finish <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()
+    server<span style="color:#f92672">.</span>send(finish)
+</code></pre></div><p>Since the client expects a plain text <code>finish</code> and the server does not send it, we must send it ourselves. After that we have a server and a client in their main loop, which can be returned.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># send finish for client</span>
+    client<span style="color:#f92672">.</span>sendline(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;finish&#34;</span>)
+
+    <span style="color:#66d9ef">return</span> server, client
+</code></pre></div><p>Now we come to the actual exploit and the chosen AES mode.</p>
 <p>AES works by dividing the message to encrypt in blocks of 16 bytes. The difference between the modes is the handling of these blocks. The simplest mode is <em>Electronic CodeBook</em> (ECB), which just takes each block and encrypts it separately. This has the effect, that the same plain text block will always result in the same encrypted block. Because of this, structures are retained. A popular example for this property is the <a href="https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#ECB">ECB encrypted Tux</a>. As a result of this insecureness, ECB is not part of the ciphers available in TLS.</p>
-
-
-
-<div class="goat svg-container ">
-  
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      font-family="Menlo,Lucida Console,monospace"
-      
-        viewBox="0 0 336 217"
-      >
-      <g transform='translate(8,16)'>
-<path d='M 8,0 L 120,0' fill='none' stroke='currentColor'></path>
-<path d='M 208,0 L 320,0' fill='none' stroke='currentColor'></path>
-<path d='M 8,32 L 120,32' fill='none' stroke='currentColor'></path>
-<path d='M 208,32 L 320,32' fill='none' stroke='currentColor'></path>
-<path d='M 24,80 L 104,80' fill='none' stroke='currentColor'></path>
-<path d='M 224,80 L 304,80' fill='none' stroke='currentColor'></path>
-<path d='M 24,112 L 104,112' fill='none' stroke='currentColor'></path>
-<path d='M 224,112 L 304,112' fill='none' stroke='currentColor'></path>
-<path d='M 0,160 L 120,160' fill='none' stroke='currentColor'></path>
-<path d='M 200,160 L 320,160' fill='none' stroke='currentColor'></path>
-<path d='M 0,192 L 120,192' fill='none' stroke='currentColor'></path>
-<path d='M 200,192 L 320,192' fill='none' stroke='currentColor'></path>
-<path d='M 0,160 L 0,192' fill='none' stroke='currentColor'></path>
-<path d='M 8,0 L 8,32' fill='none' stroke='currentColor'></path>
-<path d='M 24,80 L 24,112' fill='none' stroke='currentColor'></path>
-<path d='M 64,48 L 64,64' fill='none' stroke='currentColor'></path>
-<path d='M 64,128 L 64,144' fill='none' stroke='currentColor'></path>
-<path d='M 104,80 L 104,112' fill='none' stroke='currentColor'></path>
-<path d='M 120,0 L 120,32' fill='none' stroke='currentColor'></path>
-<path d='M 120,160 L 120,192' fill='none' stroke='currentColor'></path>
-<path d='M 200,160 L 200,192' fill='none' stroke='currentColor'></path>
-<path d='M 208,0 L 208,32' fill='none' stroke='currentColor'></path>
-<path d='M 224,80 L 224,112' fill='none' stroke='currentColor'></path>
-<path d='M 264,48 L 264,64' fill='none' stroke='currentColor'></path>
-<path d='M 264,128 L 264,144' fill='none' stroke='currentColor'></path>
-<path d='M 304,80 L 304,112' fill='none' stroke='currentColor'></path>
-<path d='M 320,0 L 320,32' fill='none' stroke='currentColor'></path>
-<path d='M 320,160 L 320,192' fill='none' stroke='currentColor'></path>
-<path d='M 64,40 L 64,48' fill='none' stroke='currentColor'></path>
-<path d='M 64,120 L 64,128' fill='none' stroke='currentColor'></path>
-<path d='M 264,40 L 264,48' fill='none' stroke='currentColor'></path>
-<path d='M 264,120 L 264,128' fill='none' stroke='currentColor'></path>
-<path d='M 64,64 L 64,72' fill='none' stroke='currentColor'></path>
-<polygon points='80.000000,64.000000 68.000000,58.400002 68.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 64.000000, 64.000000)'></polygon>
-<path d='M 64,144 L 64,152' fill='none' stroke='currentColor'></path>
-<polygon points='80.000000,144.000000 68.000000,138.399994 68.000000,149.600006' fill='currentColor' transform='rotate(90.000000, 64.000000, 144.000000)'></polygon>
-<path d='M 264,64 L 264,72' fill='none' stroke='currentColor'></path>
-<polygon points='280.000000,64.000000 268.000000,58.400002 268.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 264.000000, 64.000000)'></polygon>
-<path d='M 264,144 L 264,152' fill='none' stroke='currentColor'></path>
-<polygon points='280.000000,144.000000 268.000000,138.399994 268.000000,149.600006' fill='currentColor' transform='rotate(90.000000, 264.000000, 144.000000)'></polygon>
-<text text-anchor='middle' x='16' y='180' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='24' y='20' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='24' y='180' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='32' y='20' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='32' y='180' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='40' y='20' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='40' y='100' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='40' y='180' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='48' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='48' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='48' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='56' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='56' y='100' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='56' y='180' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='64' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='64' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='64' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='72' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='72' y='100' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='72' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='80' y='20' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='80' y='100' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='80' y='180' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='88' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='88' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='88' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='104' y='20' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='104' y='180' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='216' y='180' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='224' y='20' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='224' y='180' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='232' y='20' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='232' y='180' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='240' y='20' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='240' y='100' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='240' y='180' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='248' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='248' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='248' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='256' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='256' y='100' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='256' y='180' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='264' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='264' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='264' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='272' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='272' y='100' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='272' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='280' y='20' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='280' y='100' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='280' y='180' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='288' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='288' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='288' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='304' y='20' fill='currentColor' style='font-size:1em'>2</text>
-<text text-anchor='middle' x='304' y='180' fill='currentColor' style='font-size:1em'>2</text>
-</g>
-
-    </svg>
-  
-</div>
-<p>We can use this insecureness to our advantage. If we send a prefix, the flag is moved to the right, resulting in a different alignment against the block boundaries. By changing the length of the prefix, we can adjust the position of the flag relative to the block boundaries. In the example below we used underscores as prefix.</p>
-<pre tabindex="0"><code>      block 1          block 2
+<pre><code class="language-goat" data-lang="goat"> .-------------.          .-------------.
+ | plaintext 1 |          | plaintext 2 |
+ '-------------'          '-------------'
+        |                        |
+        v                        v
+   .---------.              .---------.
+   | encrypt |              | encrypt |
+   '---------'              '---------'
+        |                        |
+        v                        v
+.--------------.         .--------------.
+| ciphertext 1 |         | ciphertext 2 |
+'--------------'         '--------------'
+</code></pre><p>We can use this insecureness to our advantage. If we send a prefix, the flag is moved to the right, resulting in a different alignment against the block boundaries. By changing the length of the prefix, we can adjust the position of the flag relative to the block boundaries. In the example below we used underscores as prefix.</p>
+<pre><code>      block 1          block 2
 |----------------|----------------|
 |uiuctf{FAKEFLAG}|                |
 |_______________u|iuctf{FAKEFLAG} |
 |______________ui|uctf{FAKEFLAG}  |
 </code></pre><p>Let&rsquo;s assume, we already know the first character (which we do, since all flags start with <code>uiuctf{</code>). We now can guess the second character by appending the prefix used in the last row of the above example with the already known part of the flag and our guess. If we guess the correct character, the first block will be identical to the one requested with only the underscores.</p>
-<pre tabindex="0"><code>     block 1          block 2
+<pre><code>     block 1          block 2
 |----------------|----------------|
 |______________ui|uctf{FAKEFLAG}  |
 |                |                |
@@ -657,44 +408,44 @@ Because the premaster secret is send encrypted, the session key is only known to
 |______________ui|uiuctf{FAKEFLAG}|
 </code></pre><p>With this knowledge we can begin to write the function for brute forcing one character. It takes a connection to a <code>client</code>, the already guessed <code>flag</code> and the <code>alphabet</code> to use as parameters. At first we request the encrypted blocks to search for by sending only the prefix. This results in the flag being moved to the right, such that the second block will end one character after the already guessed flag characters. Since the encrypted flag spans over two blocks, we send a prefix of 32 minus the number of wanted flag characters as prefix.</p>
 <p>For converting the string to hex, we have to convert the string to bytes first and can then convert them to hex. As pwntools needs the data to send as bytes and the returned hex representation is a string, we have to encode it again.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">brute_force_char</span>(client, flag, alphabet):
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># get encrypted flag part</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span></code></pre></div><p>As the remaining blocks won&rsquo;t match, since they contain the remaining flag characters in the search request and the whole flag in the guess requests, we keep only the hex representation of the first two blocks, i.e. 64 hex characters.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    search <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
-</span></span></code></pre></div><p>Now we can iterate over the given alphabet and test each character.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># precompute prefix</span>
-</span></span><span style="display:flex;"><span>    prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)) <span style="color:#f92672">+</span> flag
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># iterate over alphabet</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> alphabet:
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># encrypt guess</span>
-</span></span><span style="display:flex;"><span>        client<span style="color:#f92672">.</span>sendline((prefix <span style="color:#f92672">+</span> c)<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span><span style="display:flex;"><span>        recv <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
-</span></span></code></pre></div><p>If the received blocks match with the search pattern, we have found the next flag character and can abort the loop</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>        <span style="color:#75715e"># return if correct char found</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> recv <span style="color:#f92672">==</span> search:
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> c
-</span></span></code></pre></div><p>As we now have the initialization of the services and the brute forcing of one flag character done, we can develope the main control flow and define the alphabet of the flag. <code>string.printable</code> contains all printable ASCII characters, including whitespace.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>ALPHABET <span style="color:#f92672">=</span> string<span style="color:#f92672">.</span>printable
-</span></span></code></pre></div><p>Furthermore we can define the known start of the flag, as its the same format for all challenges</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>flag <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;uiuctf{&#34;</span>
-</span></span></code></pre></div><p>Before starting the brute forcing, we have to get a client. Since we do not need the server, we can close it.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># get services</span>
-</span></span><span style="display:flex;"><span>server, client <span style="color:#f92672">=</span> get_services()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># close server</span>
-</span></span><span style="display:flex;"><span>server<span style="color:#f92672">.</span>close()
-</span></span></code></pre></div><p>Now we brute force the flag character by character until we reach the closing curly brace.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">while</span> flag[<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>] <span style="color:#f92672">!=</span> <span style="color:#e6db74">&#34;}&#34;</span>:
-</span></span><span style="display:flex;"><span>    flag <span style="color:#f92672">+=</span> brute_force_char(client, flag, ALPHABET)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># print progress</span>
-</span></span><span style="display:flex;"><span>    print(flag)
-</span></span></code></pre></div><p>By running this script, we get the flag after less than two minutes: <code>uiuctf{AES_@_h0m3_b3_l1ke3}</code>.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">brute_force_char</span>(client, flag, alphabet):
+    <span style="color:#75715e"># get encrypted flag part</span>
+    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+</code></pre></div><p>As the remaining blocks won&rsquo;t match, since they contain the remaining flag characters in the search request and the whole flag in the guess requests, we keep only the hex representation of the first two blocks, i.e. 64 hex characters.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    search <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
+</code></pre></div><p>Now we can iterate over the given alphabet and test each character.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># precompute prefix</span>
+    prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)) <span style="color:#f92672">+</span> flag
+
+    <span style="color:#75715e"># iterate over alphabet</span>
+    <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> alphabet:
+        <span style="color:#75715e"># encrypt guess</span>
+        client<span style="color:#f92672">.</span>sendline((prefix <span style="color:#f92672">+</span> c)<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+        recv <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
+</code></pre></div><p>If the received blocks match with the search pattern, we have found the next flag character and can abort the loop</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">        <span style="color:#75715e"># return if correct char found</span>
+        <span style="color:#66d9ef">if</span> recv <span style="color:#f92672">==</span> search:
+            <span style="color:#66d9ef">return</span> c
+</code></pre></div><p>As we now have the initialization of the services and the brute forcing of one flag character done, we can develope the main control flow and define the alphabet of the flag. <code>string.printable</code> contains all printable ASCII characters, including whitespace.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">ALPHABET <span style="color:#f92672">=</span> string<span style="color:#f92672">.</span>printable
+</code></pre></div><p>Furthermore we can define the known start of the flag, as its the same format for all challenges</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">flag <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;uiuctf{&#34;</span>
+</code></pre></div><p>Before starting the brute forcing, we have to get a client. Since we do not need the server, we can close it.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#75715e"># get services</span>
+server, client <span style="color:#f92672">=</span> get_services()
+
+<span style="color:#75715e"># close server</span>
+server<span style="color:#f92672">.</span>close()
+</code></pre></div><p>Now we brute force the flag character by character until we reach the closing curly brace.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">while</span> flag[<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>] <span style="color:#f92672">!=</span> <span style="color:#e6db74">&#34;}&#34;</span>:
+    flag <span style="color:#f92672">+=</span> brute_force_char(client, flag, ALPHABET)
+
+    <span style="color:#75715e"># print progress</span>
+    <span style="color:#66d9ef">print</span>(flag)
+</code></pre></div><p>By running this script, we get the flag after less than two minutes: <code>uiuctf{AES_@_h0m3_b3_l1ke3}</code>.</p>
 <h1 id="optimization">Optimization<a href="#optimization" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>The acquisition of the search blocks can be optimized by requesting only each of the possible 16 offsets of the flag in a block once and then reusing them. The following example demonstrates this by brute forcing the second (compare only the first block) and the 18. character of the flag (compare the first two blocks).</p>
-<pre tabindex="0"><code>     block 1          block 2          block 3          block 4
+<pre><code>     block 1          block 2          block 3          block 4
 |----------------|----------------|----------------|----------------|
 |______________ui|uctf{LONGFAKEFLA|G}              |                |
 |                |                |                |                |
@@ -704,647 +455,193 @@ Because the premaster secret is send encrypted, the session key is only known to
 |______________ui|uctf{LONGFAKEFL?|uiuctf{LONGFAKEF|LAG}            |
 |______________ui|uctf{LONGFAKEFLA|uiuctf{LONGFAKEF|LAG}            |
 </code></pre><p>This strategy would require to first request all possible search offsets:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>searchs <span style="color:#f92672">=</span> []
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">16</span>):
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">15</span><span style="color:#f92672">-</span>i))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span><span style="display:flex;"><span>    searchs<span style="color:#f92672">.</span>append(client<span style="color:#f92672">.</span>recvline())
-</span></span></code></pre></div><p><code>brute_force_char</code> would then use up to 15 prefix characters and compare as many blocks as needed to include characters up to the guessed one.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">brute_force_char</span>(client, flag, alphabet, searchs):
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># precompute prefix</span>
-</span></span><span style="display:flex;"><span>    prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">15</span> <span style="color:#f92672">-</span> len(flag)<span style="color:#f92672">%</span><span style="color:#ae81ff">16</span>) <span style="color:#f92672">+</span> flag
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># calculate length of hex representation of prefix + guess</span>
-</span></span><span style="display:flex;"><span>    compare_length <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">*</span> (len(prefix)<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># get search blocks</span>
-</span></span><span style="display:flex;"><span>    search <span style="color:#f92672">=</span> searchs[len(flag)<span style="color:#f92672">%</span><span style="color:#ae81ff">16</span>][:compare_length]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># iterate over alphabet</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> alphabet:
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># encrypt guess</span>
-</span></span><span style="display:flex;"><span>        client<span style="color:#f92672">.</span>sendline((prefix <span style="color:#f92672">+</span> c)<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span><span style="display:flex;"><span>        recv <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:compare_length]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># return if correct char found</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> recv <span style="color:#f92672">==</span> search:
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> c
-</span></span></code></pre></div><p>The main loop remains identical, except from <code>searchs</code> being passed as third parameter to <code>brute_force_char</code>. Since the flag only contains 27 characters, this optimization saves 11 requests, which is negligible compared to the up to 93 tries for the closing curly brace.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">searchs <span style="color:#f92672">=</span> []
+<span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">16</span>):
+    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">15</span><span style="color:#f92672">-</span>i))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+    searchs<span style="color:#f92672">.</span>append(client<span style="color:#f92672">.</span>recvline())
+</code></pre></div><p><code>brute_force_char</code> would then use up to 15 prefix characters and compare as many blocks as needed to include characters up to the guessed one.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">brute_force_char</span>(client, flag, alphabet, searchs):
+    <span style="color:#75715e"># precompute prefix</span>
+    prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">15</span> <span style="color:#f92672">-</span> len(flag)<span style="color:#f92672">%</span><span style="color:#ae81ff">16</span>) <span style="color:#f92672">+</span> flag
+
+    <span style="color:#75715e"># calculate length of hex representation of prefix + guess</span>
+    compare_length <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">*</span> (len(prefix)<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>)
+
+    <span style="color:#75715e"># get search blocks</span>
+    search <span style="color:#f92672">=</span> searchs[len(flag)<span style="color:#f92672">%</span><span style="color:#ae81ff">16</span>][:compare_length]
+
+    <span style="color:#75715e"># iterate over alphabet</span>
+    <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> alphabet:
+        <span style="color:#75715e"># encrypt guess</span>
+        client<span style="color:#f92672">.</span>sendline((prefix <span style="color:#f92672">+</span> c)<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+        recv <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:compare_length]
+
+        <span style="color:#75715e"># return if correct char found</span>
+        <span style="color:#66d9ef">if</span> recv <span style="color:#f92672">==</span> search:
+            <span style="color:#66d9ef">return</span> c
+</code></pre></div><p>The main loop remains identical, except from <code>searchs</code> being passed as third parameter to <code>brute_force_char</code>. Since the flag only contains 27 characters, this optimization saves 11 requests, which is negligible compared to the up to 93 tries for the closing curly brace.</p>
 <h1 id="parallelization">Parallelization<a href="#parallelization" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>The approach used in the exploit can be parallelized by using multiple connections. Since the session key will be different for each connection, the encrypted plain text and therefore the search pattern will be different and must be requested for each session. Then the alphabet can be distributed between the connections.</p>
 <p>A good library for this is python&rsquo;s <a href="https://docs.python.org/3/library/concurrent.futures.html"><code>concurrent.futures</code></a> library. It allows to distribute tasks between a defined number of workers and returning finished tasks without manually querying all workers. Furthermore we will use the <code>threading</code> library to store data at the worker threads and <code>ceil</code> from the math library.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">import</span> concurrent.futures <span style="color:#66d9ef">as</span> cf
-</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> threading
-</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> math
-</span></span></code></pre></div><p>The main part of <code>concurrent.futures</code> are the executors. They control the workers and distribute the tasks. <code>concurrent.futures</code> offers two types of executors: <code>ThreadPoolExecutor</code> and <code>ProcessPoolExecutor</code>. As the names indicate, the former one uses threads and the later one subprocesses for it&rsquo;s workers. Concurrency can be solved in multiple ways. Python decided to use the easiest and safest one by introducing the global interpreter lock. This lock ensures, that there is always only one thread executing bytecode. In contrast to threads, subprocesses are, as the name indicates, separate processes, resulting in having an own global interpreter lock for each process. As a consequence, the access to variables outside the process is limited. Furthermore <code>ProcessPolExecutor</code> cannot be used inside the python console. Since the requests are I/O bound tasks with negligible computing time, there should be no noticeable difference between those two executors. But as threads are more light weight, they can be spawned a bit faster. Because of the beforementioned advantages of threads, we will take the <code>ThreadPoolExecutor</code>.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#f92672">import</span> concurrent.futures <span style="color:#f92672">as</span> cf
+<span style="color:#f92672">import</span> threading
+<span style="color:#f92672">import</span> math
+</code></pre></div><p>The main part of <code>concurrent.futures</code> are the executors. They control the workers and distribute the tasks. <code>concurrent.futures</code> offers two types of executors: <code>ThreadPoolExecutor</code> and <code>ProcessPoolExecutor</code>. As the names indicate, the former one uses threads and the later one subprocesses for it&rsquo;s workers. Concurrency can be solved in multiple ways. Python decided to use the easiest and safest one by introducing the global interpreter lock. This lock ensures, that there is always only one thread executing bytecode. In contrast to threads, subprocesses are, as the name indicates, separate processes, resulting in having an own global interpreter lock for each process. As a consequence, the access to variables outside the process is limited. Furthermore <code>ProcessPolExecutor</code> cannot be used inside the python console. Since the requests are I/O bound tasks with negligible computing time, there should be no noticeable difference between those two executors. But as threads are more light weight, they can be spawned a bit faster. Because of the beforementioned advantages of threads, we will take the <code>ThreadPoolExecutor</code>.</p>
 <p>Since we want to reuse clients for multiple requests, we have to initialize the workers first. Since each client has a different session key, we have to request the search pattern for each client and therefore store it together with the corresponding flag part in the client.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">init_worker</span>():
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># get services</span>
-</span></span><span style="display:flex;"><span>    server, client <span style="color:#f92672">=</span> get_services()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># close server</span>
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>close()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># set additional client attributes</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>flag <span style="color:#f92672">=</span> <span style="color:#66d9ef">None</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>search <span style="color:#f92672">=</span> <span style="color:#66d9ef">None</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># store client with the thread</span>
-</span></span><span style="display:flex;"><span>    threading<span style="color:#f92672">.</span>current_thread()<span style="color:#f92672">.</span>client <span style="color:#f92672">=</span> client
-</span></span></code></pre></div><p>Now we can adjust the brute force function, which will be executed by the threads. Each run will try only one character. We first have to ensure, that the blocks to search for are the ones for the current flag character. Then we can request the encryption of our try and return the result of the comparison together with the tested character.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">try_character</span>(flag, char):
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># get client</span>
-</span></span><span style="display:flex;"><span>    client <span style="color:#f92672">=</span> threading<span style="color:#f92672">.</span>current_thread()<span style="color:#f92672">.</span>client
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># test if search pattern is for current flag character</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> client<span style="color:#f92672">.</span>flag <span style="color:#f92672">!=</span> flag:
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># get encrypted flag part</span>
-</span></span><span style="display:flex;"><span>        client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span><span style="display:flex;"><span>        client<span style="color:#f92672">.</span>search <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># test character</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)) <span style="color:#f92672">+</span> flag <span style="color:#f92672">+</span> char)<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span><span style="display:flex;"><span>    test <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># return test result</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> test <span style="color:#f92672">==</span> client<span style="color:#f92672">.</span>search, char
-</span></span></code></pre></div><p>After we having all prerequisites, we can now rebuild the main control flow, starting with the already known definitions of the flag start and the alphabet.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>flag <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;uiuctf{&#34;</span>
-</span></span><span style="display:flex;"><span>ALPHABET <span style="color:#f92672">=</span> string<span style="color:#f92672">.</span>printable
-</span></span></code></pre></div><p>Now we can create the executor. We choose each thread to handle up to five characters, which results in every sixth request being one for the search pattern.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>max_workers <span style="color:#f92672">=</span> math<span style="color:#f92672">.</span>ceil(len(ALPHABET)<span style="color:#f92672">/</span><span style="color:#ae81ff">5</span>)
-</span></span><span style="display:flex;"><span>executor <span style="color:#f92672">=</span> cf<span style="color:#f92672">.</span>ThreadPoolExecutor(max_workers<span style="color:#f92672">=</span>max_workers, initializer<span style="color:#f92672">=</span>init_worker)
-</span></span></code></pre></div><p>The main loop looks different this time, since we have to deal with the executor and its results. Since we want to pass the already brute forced part of the flag to <code>try_character</code>, we cannot use the <code>map</code> function of the executor and must submit each call ourselves.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">while</span> flag[<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>] <span style="color:#f92672">!=</span> <span style="color:#e6db74">&#34;}&#34;</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># get futures</span>
-</span></span><span style="display:flex;"><span>    futures <span style="color:#f92672">=</span> [executor<span style="color:#f92672">.</span>submit(try_character, flag, c) <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> ALPHABET]
-</span></span></code></pre></div><p>After having a list with futures, we have to resolve them. By using <code>as_completed</code>, we get completed futures independent of the order in the passed list. As before, we stop the loop when we found the next flag character.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># handle results</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> future <span style="color:#f92672">in</span> cf<span style="color:#f92672">.</span>as_completed(futures):
-</span></span><span style="display:flex;"><span>        result, char <span style="color:#f92672">=</span> future<span style="color:#f92672">.</span>result()
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> result:
-</span></span><span style="display:flex;"><span>            flag <span style="color:#f92672">+=</span> char
-</span></span><span style="display:flex;"><span>            print(flag)
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
-</span></span></code></pre></div><p>But stopping the loop won&rsquo;t stop the executor from executing the futures, so we have to cancel them ourselves. The cancellation of the remaining futures will reduce the runtime from around 30 seconds to around 22 seconds.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># cancel remaining futures</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> future <span style="color:#f92672">in</span> futures:
-</span></span><span style="display:flex;"><span>        future<span style="color:#f92672">.</span>cancel()
-</span></span></code></pre></div><h1 id="other-modes">Other Modes<a href="#other-modes" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">init_worker</span>():
+    <span style="color:#75715e"># get services</span>
+    server, client <span style="color:#f92672">=</span> get_services()
+
+    <span style="color:#75715e"># close server</span>
+    server<span style="color:#f92672">.</span>close()
+
+    <span style="color:#75715e"># set additional client attributes</span>
+    client<span style="color:#f92672">.</span>flag <span style="color:#f92672">=</span> None
+    client<span style="color:#f92672">.</span>search <span style="color:#f92672">=</span> None
+
+    <span style="color:#75715e"># store client with the thread</span>
+    threading<span style="color:#f92672">.</span>current_thread()<span style="color:#f92672">.</span>client <span style="color:#f92672">=</span> client
+</code></pre></div><p>Now we can adjust the brute force function, which will be executed by the threads. Each run will try only one character. We first have to ensure, that the blocks to search for are the ones for the current flag character. Then we can request the encryption of our try and return the result of the comparison together with the tested character.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">try_character</span>(flag, char):
+    <span style="color:#75715e"># get client</span>
+    client <span style="color:#f92672">=</span> threading<span style="color:#f92672">.</span>current_thread()<span style="color:#f92672">.</span>client
+
+    <span style="color:#75715e"># test if search pattern is for current flag character</span>
+    <span style="color:#66d9ef">if</span> client<span style="color:#f92672">.</span>flag <span style="color:#f92672">!=</span> flag:
+        <span style="color:#75715e"># get encrypted flag part</span>
+        client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+        client<span style="color:#f92672">.</span>search <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
+
+    <span style="color:#75715e"># test character</span>
+    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)) <span style="color:#f92672">+</span> flag <span style="color:#f92672">+</span> char)<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+    test <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()[:<span style="color:#ae81ff">64</span>]
+
+    <span style="color:#75715e"># return test result</span>
+    <span style="color:#66d9ef">return</span> test <span style="color:#f92672">==</span> client<span style="color:#f92672">.</span>search, char
+</code></pre></div><p>After we having all prerequisites, we can now rebuild the main control flow, starting with the already known definitions of the flag start and the alphabet.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">flag <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;uiuctf{&#34;</span>
+ALPHABET <span style="color:#f92672">=</span> string<span style="color:#f92672">.</span>printable
+</code></pre></div><p>Now we can create the executor. We choose each thread to handle up to five characters, which results in every sixth request being one for the search pattern.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">max_workers <span style="color:#f92672">=</span> math<span style="color:#f92672">.</span>ceil(len(ALPHABET)<span style="color:#f92672">/</span><span style="color:#ae81ff">5</span>)
+executor <span style="color:#f92672">=</span> cf<span style="color:#f92672">.</span>ThreadPoolExecutor(max_workers<span style="color:#f92672">=</span>max_workers, initializer<span style="color:#f92672">=</span>init_worker)
+</code></pre></div><p>The main loop looks different this time, since we have to deal with the executor and its results. Since we want to pass the already brute forced part of the flag to <code>try_character</code>, we cannot use the <code>map</code> function of the executor and must submit each call ourselves.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">while</span> flag[<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>] <span style="color:#f92672">!=</span> <span style="color:#e6db74">&#34;}&#34;</span>:
+    <span style="color:#75715e"># get futures</span>
+    futures <span style="color:#f92672">=</span> [executor<span style="color:#f92672">.</span>submit(try_character, flag, c) <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> ALPHABET]
+</code></pre></div><p>After having a list with futures, we have to resolve them. By using <code>as_completed</code>, we get completed futures independent of the order in the passed list. As before, we stop the loop when we found the next flag character.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># handle results</span>
+    <span style="color:#66d9ef">for</span> future <span style="color:#f92672">in</span> cf<span style="color:#f92672">.</span>as_completed(futures):
+        result, char <span style="color:#f92672">=</span> future<span style="color:#f92672">.</span>result()
+        <span style="color:#66d9ef">if</span> result:
+            flag <span style="color:#f92672">+=</span> char
+            <span style="color:#66d9ef">print</span>(flag)
+            <span style="color:#66d9ef">break</span>
+</code></pre></div><p>But stopping the loop won&rsquo;t stop the executor from executing the futures, so we have to cancel them ourselves. The cancellation of the remaining futures will reduce the runtime from around 30 seconds to around 22 seconds.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># cancel remaining futures</span>
+    <span style="color:#66d9ef">for</span> future <span style="color:#f92672">in</span> futures:
+        future<span style="color:#f92672">.</span>cancel()
+</code></pre></div><h1 id="other-modes">Other Modes<a href="#other-modes" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>In our exploit we used the ECB mode, as it is the easiest one, but other modes can also be used after slight adjustments. So let&rsquo;s have a closer look on the other AES modes featured in this challenge.</p>
 <h2 id="aes-ctr">AES CTR<a href="#aes-ctr" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
 <p>The CounTeR mode encrypts the concatenation of a 64 bit nonce and a 64 bit counter and xors the result with the plaintext. Since the nonce and the session key will be different for each connection, the encrypted nonce+counter cannot be predicted. It is possible to infer the encrypted nonce+counter by sending a prefix large enough to know the plaintext of an entire block. But since we do not know the session key, this doesn&rsquo;t enables us to predict the next one. Since encrypting something with AES will result in an equal chance of a bit being 0 or 1, we do not know the encrypted nonce+counter or we have no unknown bit in the plaintext and are therefore unable to infer the flag with this mode. Counter mode has the advantage, that its keys can be precomputed and then xored over the plaintext. Furthermore this mode only requires the possibility to encrypt and is therefore easier to implement.</p>
-
-
-
-<div class="goat svg-container ">
-  
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      font-family="Menlo,Lucida Console,monospace"
-      
-        viewBox="0 0 528 297"
-      >
-      <g transform='translate(8,16)'>
-<path d='M 88,0 L 152,0' fill='none' stroke='currentColor'></path>
-<path d='M 152,0 L 240,0' fill='none' stroke='currentColor'></path>
-<path d='M 360,0 L 424,0' fill='none' stroke='currentColor'></path>
-<path d='M 424,0 L 512,0' fill='none' stroke='currentColor'></path>
-<path d='M 88,32 L 152,32' fill='none' stroke='currentColor'></path>
-<path d='M 152,32 L 240,32' fill='none' stroke='currentColor'></path>
-<path d='M 360,32 L 424,32' fill='none' stroke='currentColor'></path>
-<path d='M 424,32 L 512,32' fill='none' stroke='currentColor'></path>
-<path d='M 128,80 L 208,80' fill='none' stroke='currentColor'></path>
-<path d='M 400,80 L 480,80' fill='none' stroke='currentColor'></path>
-<path d='M 128,112 L 208,112' fill='none' stroke='currentColor'></path>
-<path d='M 400,112 L 480,112' fill='none' stroke='currentColor'></path>
-<path d='M 0,160 L 112,160' fill='none' stroke='currentColor'></path>
-<path d='M 144,160 L 192,160' fill='none' stroke='currentColor'></path>
-<path d='M 272,160 L 384,160' fill='none' stroke='currentColor'></path>
-<path d='M 416,160 L 464,160' fill='none' stroke='currentColor'></path>
-<path d='M 120,176 L 136,176' fill='none' stroke='currentColor'></path>
-<path d='M 392,176 L 408,176' fill='none' stroke='currentColor'></path>
-<path d='M 0,192 L 112,192' fill='none' stroke='currentColor'></path>
-<path d='M 144,192 L 192,192' fill='none' stroke='currentColor'></path>
-<path d='M 272,192 L 384,192' fill='none' stroke='currentColor'></path>
-<path d='M 416,192 L 464,192' fill='none' stroke='currentColor'></path>
-<path d='M 104,240 L 224,240' fill='none' stroke='currentColor'></path>
-<path d='M 376,240 L 496,240' fill='none' stroke='currentColor'></path>
-<path d='M 104,272 L 224,272' fill='none' stroke='currentColor'></path>
-<path d='M 376,272 L 496,272' fill='none' stroke='currentColor'></path>
-<path d='M 0,160 L 0,192' fill='none' stroke='currentColor'></path>
-<path d='M 88,0 L 88,32' fill='none' stroke='currentColor'></path>
-<path d='M 104,240 L 104,272' fill='none' stroke='currentColor'></path>
-<path d='M 112,160 L 112,192' fill='none' stroke='currentColor'></path>
-<path d='M 128,80 L 128,112' fill='none' stroke='currentColor'></path>
-<path d='M 144,160 L 144,192' fill='none' stroke='currentColor'></path>
-<path d='M 152,0 L 152,32' fill='none' stroke='currentColor'></path>
-<path d='M 168,48 L 168,64' fill='none' stroke='currentColor'></path>
-<path d='M 168,128 L 168,144' fill='none' stroke='currentColor'></path>
-<path d='M 168,208 L 168,224' fill='none' stroke='currentColor'></path>
-<path d='M 192,160 L 192,192' fill='none' stroke='currentColor'></path>
-<path d='M 208,80 L 208,112' fill='none' stroke='currentColor'></path>
-<path d='M 224,240 L 224,272' fill='none' stroke='currentColor'></path>
-<path d='M 240,0 L 240,32' fill='none' stroke='currentColor'></path>
-<path d='M 272,160 L 272,192' fill='none' stroke='currentColor'></path>
-<path d='M 360,0 L 360,32' fill='none' stroke='currentColor'></path>
-<path d='M 376,240 L 376,272' fill='none' stroke='currentColor'></path>
-<path d='M 384,160 L 384,192' fill='none' stroke='currentColor'></path>
-<path d='M 400,80 L 400,112' fill='none' stroke='currentColor'></path>
-<path d='M 416,160 L 416,192' fill='none' stroke='currentColor'></path>
-<path d='M 424,0 L 424,32' fill='none' stroke='currentColor'></path>
-<path d='M 440,48 L 440,64' fill='none' stroke='currentColor'></path>
-<path d='M 440,128 L 440,144' fill='none' stroke='currentColor'></path>
-<path d='M 440,208 L 440,224' fill='none' stroke='currentColor'></path>
-<path d='M 464,160 L 464,192' fill='none' stroke='currentColor'></path>
-<path d='M 480,80 L 480,112' fill='none' stroke='currentColor'></path>
-<path d='M 496,240 L 496,272' fill='none' stroke='currentColor'></path>
-<path d='M 512,0 L 512,32' fill='none' stroke='currentColor'></path>
-<path d='M 168,40 L 168,48' fill='none' stroke='currentColor'></path>
-<path d='M 168,120 L 168,128' fill='none' stroke='currentColor'></path>
-<path d='M 168,200 L 168,208' fill='none' stroke='currentColor'></path>
-<path d='M 440,40 L 440,48' fill='none' stroke='currentColor'></path>
-<path d='M 440,120 L 440,128' fill='none' stroke='currentColor'></path>
-<path d='M 440,200 L 440,208' fill='none' stroke='currentColor'></path>
-<polygon points='144.000000,176.000000 132.000000,170.399994 132.000000,181.600006' fill='currentColor' transform='rotate(0.000000, 136.000000, 176.000000)'></polygon>
-<path d='M 168,64 L 168,72' fill='none' stroke='currentColor'></path>
-<polygon points='184.000000,64.000000 172.000000,58.400002 172.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 168.000000, 64.000000)'></polygon>
-<path d='M 168,144 L 168,152' fill='none' stroke='currentColor'></path>
-<polygon points='184.000000,144.000000 172.000000,138.399994 172.000000,149.600006' fill='currentColor' transform='rotate(90.000000, 168.000000, 144.000000)'></polygon>
-<path d='M 168,224 L 168,232' fill='none' stroke='currentColor'></path>
-<polygon points='184.000000,224.000000 172.000000,218.399994 172.000000,229.600006' fill='currentColor' transform='rotate(90.000000, 168.000000, 224.000000)'></polygon>
-<polygon points='416.000000,176.000000 404.000000,170.399994 404.000000,181.600006' fill='currentColor' transform='rotate(0.000000, 408.000000, 176.000000)'></polygon>
-<path d='M 440,64 L 440,72' fill='none' stroke='currentColor'></path>
-<polygon points='456.000000,64.000000 444.000000,58.400002 444.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 440.000000, 64.000000)'></polygon>
-<path d='M 440,144 L 440,152' fill='none' stroke='currentColor'></path>
-<polygon points='456.000000,144.000000 444.000000,138.399994 444.000000,149.600006' fill='currentColor' transform='rotate(90.000000, 440.000000, 144.000000)'></polygon>
-<path d='M 440,224 L 440,232' fill='none' stroke='currentColor'></path>
-<polygon points='456.000000,224.000000 444.000000,218.399994 444.000000,229.600006' fill='currentColor' transform='rotate(90.000000, 440.000000, 224.000000)'></polygon>
-<text text-anchor='middle' x='16' y='180' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='24' y='180' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='32' y='180' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='40' y='180' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='48' y='180' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='56' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='64' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='72' y='180' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='80' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='96' y='180' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='104' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='112' y='20' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='120' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='120' y='260' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='128' y='20' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='128' y='260' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='136' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='136' y='260' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='144' y='100' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='144' y='260' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='152' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='152' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='160' y='100' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='160' y='180' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='160' y='260' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='168' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='168' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='168' y='180' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='168' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='176' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='176' y='100' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='176' y='180' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='176' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='184' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='184' y='100' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='184' y='260' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='192' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='192' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='192' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='200' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='208' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='208' y='260' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='216' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='224' y='20' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='288' y='180' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='296' y='180' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='304' y='180' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='312' y='180' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='320' y='180' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='328' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='336' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='344' y='180' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='352' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='368' y='180' fill='currentColor' style='font-size:1em'>2</text>
-<text text-anchor='middle' x='376' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='384' y='20' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='392' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='392' y='260' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='400' y='20' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='400' y='260' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='408' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='408' y='260' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='416' y='100' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='416' y='260' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='424' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='424' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='432' y='100' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='432' y='180' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='432' y='260' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='440' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='440' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='440' y='180' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='440' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='448' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='448' y='100' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='448' y='180' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='448' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='456' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='456' y='100' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='456' y='260' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='464' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='464' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='464' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='472' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='480' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='480' y='260' fill='currentColor' style='font-size:1em'>2</text>
-<text text-anchor='middle' x='488' y='20' fill='currentColor' style='font-size:1em'>0</text>
-<text text-anchor='middle' x='496' y='20' fill='currentColor' style='font-size:1em'>2</text>
-</g>
-
-    </svg>
-  
-</div>
-<h1 id="aes-ofb">AES OFB<a href="#aes-ofb" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<pre><code class="language-goat" data-lang="goat">           .-------+----------.              .-------+----------.
+           | nonce | 00000001 |              | nonce | 00000002 |
+           '-------+----------'              '-------+----------'
+                     |                                 |
+                     v                                 v
+                .---------.                       .---------.
+                | encrypt |                       | encrypt |
+                '---------'                       '---------'
+                     |                                 |
+                     v                                 v
+.-------------.   .-----.         .-------------.   .-----.
+| plaintext 1 |--&gt;| xor |         | plaintext 2 |--&gt;| xor |
+'-------------'   '-----'         '-------------'   '-----'
+                     |                                 |
+                     v                                 v
+             .--------------.                  .--------------.
+             | ciphertext 1 |                  | ciphertext 2 |
+             '--------------'                  '--------------'
+</code></pre><h1 id="aes-ofb">AES OFB<a href="#aes-ofb" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>The Output FeedBack mode starts with encrypting the initialization vector. It then xors the result with the plaintext. For subsequent blocks, the output of the encryption of the previous block is used instead of the initialization vector. Since the initialization vector is not defined, the used python library will generate it randomly. Using this mode has the same consequences as using the counter mode: we can get the output of the encryption by providing 16 known bytes of plaintext or we can include unknown bits in the plaintext but are unable to infer them, since there is an equal chance of the unknown bits to be flipped or not, as the corresponding bits of the encryption result have an equal probability of being 0 or 1. As a consequence, this mode is unsuitable for solving the challenge. Its has the same advantages as the counter mode but has the disadvantage that it is not possible to decode a block without generating all previous keys.</p>
-
-
-
-<div class="goat svg-container ">
-  
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      font-family="Menlo,Lucida Console,monospace"
-      
-        viewBox="0 0 520 329"
-      >
-      <g transform='translate(8,16)'>
-<path d='M 72,0 L 264,0' fill='none' stroke='currentColor'></path>
-<path d='M 72,32 L 264,32' fill='none' stroke='currentColor'></path>
-<path d='M 304,32 L 448,32' fill='none' stroke='currentColor'></path>
-<path d='M 128,80 L 208,80' fill='none' stroke='currentColor'></path>
-<path d='M 408,80 L 488,80' fill='none' stroke='currentColor'></path>
-<path d='M 128,112 L 208,112' fill='none' stroke='currentColor'></path>
-<path d='M 408,112 L 488,112' fill='none' stroke='currentColor'></path>
-<path d='M 168,144 L 304,144' fill='none' stroke='currentColor'></path>
-<path d='M 0,192 L 112,192' fill='none' stroke='currentColor'></path>
-<path d='M 144,192 L 192,192' fill='none' stroke='currentColor'></path>
-<path d='M 280,192 L 392,192' fill='none' stroke='currentColor'></path>
-<path d='M 424,192 L 472,192' fill='none' stroke='currentColor'></path>
-<path d='M 120,208 L 136,208' fill='none' stroke='currentColor'></path>
-<path d='M 400,208 L 416,208' fill='none' stroke='currentColor'></path>
-<path d='M 0,224 L 112,224' fill='none' stroke='currentColor'></path>
-<path d='M 144,224 L 192,224' fill='none' stroke='currentColor'></path>
-<path d='M 280,224 L 392,224' fill='none' stroke='currentColor'></path>
-<path d='M 424,224 L 472,224' fill='none' stroke='currentColor'></path>
-<path d='M 104,272 L 224,272' fill='none' stroke='currentColor'></path>
-<path d='M 384,272 L 504,272' fill='none' stroke='currentColor'></path>
-<path d='M 104,304 L 224,304' fill='none' stroke='currentColor'></path>
-<path d='M 384,304 L 504,304' fill='none' stroke='currentColor'></path>
-<path d='M 0,192 L 0,224' fill='none' stroke='currentColor'></path>
-<path d='M 72,0 L 72,32' fill='none' stroke='currentColor'></path>
-<path d='M 104,272 L 104,304' fill='none' stroke='currentColor'></path>
-<path d='M 112,192 L 112,224' fill='none' stroke='currentColor'></path>
-<path d='M 128,80 L 128,112' fill='none' stroke='currentColor'></path>
-<path d='M 144,192 L 144,224' fill='none' stroke='currentColor'></path>
-<path d='M 168,48 L 168,64' fill='none' stroke='currentColor'></path>
-<path d='M 168,128 L 168,144' fill='none' stroke='currentColor'></path>
-<path d='M 168,144 L 168,176' fill='none' stroke='currentColor'></path>
-<path d='M 168,240 L 168,256' fill='none' stroke='currentColor'></path>
-<path d='M 192,192 L 192,224' fill='none' stroke='currentColor'></path>
-<path d='M 208,80 L 208,112' fill='none' stroke='currentColor'></path>
-<path d='M 224,272 L 224,304' fill='none' stroke='currentColor'></path>
-<path d='M 264,0 L 264,32' fill='none' stroke='currentColor'></path>
-<path d='M 280,192 L 280,224' fill='none' stroke='currentColor'></path>
-<path d='M 304,32 L 304,144' fill='none' stroke='currentColor'></path>
-<path d='M 384,272 L 384,304' fill='none' stroke='currentColor'></path>
-<path d='M 392,192 L 392,224' fill='none' stroke='currentColor'></path>
-<path d='M 408,80 L 408,112' fill='none' stroke='currentColor'></path>
-<path d='M 424,192 L 424,224' fill='none' stroke='currentColor'></path>
-<path d='M 448,32 L 448,64' fill='none' stroke='currentColor'></path>
-<path d='M 448,128 L 448,176' fill='none' stroke='currentColor'></path>
-<path d='M 448,240 L 448,256' fill='none' stroke='currentColor'></path>
-<path d='M 472,192 L 472,224' fill='none' stroke='currentColor'></path>
-<path d='M 488,80 L 488,112' fill='none' stroke='currentColor'></path>
-<path d='M 504,272 L 504,304' fill='none' stroke='currentColor'></path>
-<path d='M 168,40 L 168,48' fill='none' stroke='currentColor'></path>
-<path d='M 168,120 L 168,128' fill='none' stroke='currentColor'></path>
-<path d='M 168,232 L 168,240' fill='none' stroke='currentColor'></path>
-<path d='M 448,120 L 448,128' fill='none' stroke='currentColor'></path>
-<path d='M 448,232 L 448,240' fill='none' stroke='currentColor'></path>
-<polygon points='144.000000,208.000000 132.000000,202.399994 132.000000,213.600006' fill='currentColor' transform='rotate(0.000000, 136.000000, 208.000000)'></polygon>
-<path d='M 168,64 L 168,72' fill='none' stroke='currentColor'></path>
-<polygon points='184.000000,64.000000 172.000000,58.400002 172.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 168.000000, 64.000000)'></polygon>
-<path d='M 168,176 L 168,184' fill='none' stroke='currentColor'></path>
-<polygon points='184.000000,176.000000 172.000000,170.399994 172.000000,181.600006' fill='currentColor' transform='rotate(90.000000, 168.000000, 176.000000)'></polygon>
-<path d='M 168,256 L 168,264' fill='none' stroke='currentColor'></path>
-<polygon points='184.000000,256.000000 172.000000,250.399994 172.000000,261.600006' fill='currentColor' transform='rotate(90.000000, 168.000000, 256.000000)'></polygon>
-<polygon points='424.000000,208.000000 412.000000,202.399994 412.000000,213.600006' fill='currentColor' transform='rotate(0.000000, 416.000000, 208.000000)'></polygon>
-<path d='M 448,64 L 448,72' fill='none' stroke='currentColor'></path>
-<polygon points='464.000000,64.000000 452.000000,58.400002 452.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 448.000000, 64.000000)'></polygon>
-<path d='M 448,176 L 448,184' fill='none' stroke='currentColor'></path>
-<polygon points='464.000000,176.000000 452.000000,170.399994 452.000000,181.600006' fill='currentColor' transform='rotate(90.000000, 448.000000, 176.000000)'></polygon>
-<path d='M 448,256 L 448,264' fill='none' stroke='currentColor'></path>
-<polygon points='464.000000,256.000000 452.000000,250.399994 452.000000,261.600006' fill='currentColor' transform='rotate(90.000000, 448.000000, 256.000000)'></polygon>
-<text text-anchor='middle' x='16' y='212' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='24' y='212' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='32' y='212' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='40' y='212' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='48' y='212' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='56' y='212' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='64' y='212' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='72' y='212' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='80' y='212' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='88' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='96' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='96' y='212' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='104' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='112' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='120' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='120' y='292' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='128' y='20' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='128' y='292' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='136' y='20' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='136' y='292' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='144' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='144' y='100' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='144' y='292' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='152' y='20' fill='currentColor' style='font-size:1em'>z</text>
-<text text-anchor='middle' x='152' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='152' y='292' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='160' y='20' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='160' y='100' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='160' y='212' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='160' y='292' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='168' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='168' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='168' y='212' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='168' y='292' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='176' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='176' y='100' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='176' y='212' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='176' y='292' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='184' y='20' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='184' y='100' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='184' y='292' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='192' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='192' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='192' y='292' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='208' y='20' fill='currentColor' style='font-size:1em'>v</text>
-<text text-anchor='middle' x='208' y='292' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='216' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='224' y='20' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='232' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='240' y='20' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='248' y='20' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='296' y='212' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='304' y='212' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='312' y='212' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='320' y='212' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='328' y='212' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='336' y='212' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='344' y='212' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='352' y='212' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='360' y='212' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='376' y='212' fill='currentColor' style='font-size:1em'>2</text>
-<text text-anchor='middle' x='400' y='292' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='408' y='292' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='416' y='292' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='424' y='100' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='424' y='292' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='432' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='432' y='292' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='440' y='100' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='440' y='212' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='440' y='292' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='448' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='448' y='212' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='448' y='292' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='456' y='100' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='456' y='212' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='456' y='292' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='464' y='100' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='464' y='292' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='472' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='472' y='292' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='488' y='292' fill='currentColor' style='font-size:1em'>2</text>
-</g>
-
-    </svg>
-  
-</div>
-<h1 id="aes-eax">AES EAX<a href="#aes-eax" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<pre><code class="language-goat" data-lang="goat">         .-----------------------.
+         | initialization vector |
+         '-----------------------'    .-----------------.
+                     |                |                 |
+                     v                |                 v
+                .---------.           |            .---------.
+                | encrypt |           |            | encrypt |
+                '---------'           |            '---------'
+                     |                |                 |
+                     +----------------'                 |
+                     |                                  |
+                     v                                  v
+.-------------.   .-----.          .-------------.   .-----.
+| plaintext 1 |--&gt;| xor |          | plaintext 2 |--&gt;| xor |
+'-------------'   '-----'          '-------------'   '-----'
+                     |                                  |
+                     v                                  v
+             .--------------.                   .--------------.
+             | ciphertext 1 |                   | ciphertext 2 |
+             '--------------'                   '--------------'
+</code></pre><h1 id="aes-eax">AES EAX<a href="#aes-eax" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>In EAX mode, AES will output a tuple with two values. The first one is the plaintext encoded with counter mode and the second one is a tag, which can be used for authentication. Since counter mode is used to generate the plaintext and the tag is generated from the ciphertext, a header unrelated to the plain text and the nonce from counter mode, it is also inappropriate for solving this challenge.</p>
 <h1 id="aes-cbc">AES CBC<a href="#aes-cbc" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
 <p>The only mode left is Cipher Block Chaining. It starts with an initialization vector, which is not set in our case and therefore randomly generated. It then xors the initialization vector with the plaintext and encrypts the result. For subsequent blocks, the ciphertext of the previous block is used instead of the initialization vector. This has the effect, that the decryption of each block depends only on the session key and the ciphertext of the previous block, which enables the decryption without decryption of random blocks. Since we know the ciphertext of the previous block and are able to set the prefix of the plaintext freely, we can use this mode to solve the challenge. So let&rsquo;s implement it. Since it might be easier to understand if we implement it without multithreading, we will leave the parallelization and other optimizations to the reader.</p>
-
-
-
-<div class="goat svg-container ">
-  
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      font-family="Menlo,Lucida Console,monospace"
-      
-        viewBox="0 0 648 297"
-      >
-      <g transform='translate(8,16)'>
-<path d='M 192,0 L 304,0' fill='none' stroke='currentColor'></path>
-<path d='M 520,0 L 632,0' fill='none' stroke='currentColor'></path>
-<path d='M 192,32 L 304,32' fill='none' stroke='currentColor'></path>
-<path d='M 520,32 L 632,32' fill='none' stroke='currentColor'></path>
-<path d='M 0,80 L 192,80' fill='none' stroke='currentColor'></path>
-<path d='M 224,80 L 272,80' fill='none' stroke='currentColor'></path>
-<path d='M 552,80 L 600,80' fill='none' stroke='currentColor'></path>
-<path d='M 200,96 L 216,96' fill='none' stroke='currentColor'></path>
-<path d='M 376,96 L 544,96' fill='none' stroke='currentColor'></path>
-<path d='M 0,112 L 192,112' fill='none' stroke='currentColor'></path>
-<path d='M 224,112 L 272,112' fill='none' stroke='currentColor'></path>
-<path d='M 552,112 L 600,112' fill='none' stroke='currentColor'></path>
-<path d='M 208,160 L 288,160' fill='none' stroke='currentColor'></path>
-<path d='M 536,160 L 616,160' fill='none' stroke='currentColor'></path>
-<path d='M 208,192 L 288,192' fill='none' stroke='currentColor'></path>
-<path d='M 536,192 L 616,192' fill='none' stroke='currentColor'></path>
-<path d='M 184,240 L 304,240' fill='none' stroke='currentColor'></path>
-<path d='M 512,240 L 632,240' fill='none' stroke='currentColor'></path>
-<path d='M 312,256 L 376,256' fill='none' stroke='currentColor'></path>
-<path d='M 184,272 L 304,272' fill='none' stroke='currentColor'></path>
-<path d='M 512,272 L 632,272' fill='none' stroke='currentColor'></path>
-<path d='M 0,80 L 0,112' fill='none' stroke='currentColor'></path>
-<path d='M 184,240 L 184,272' fill='none' stroke='currentColor'></path>
-<path d='M 192,0 L 192,32' fill='none' stroke='currentColor'></path>
-<path d='M 192,80 L 192,112' fill='none' stroke='currentColor'></path>
-<path d='M 208,160 L 208,192' fill='none' stroke='currentColor'></path>
-<path d='M 224,80 L 224,112' fill='none' stroke='currentColor'></path>
-<path d='M 248,48 L 248,64' fill='none' stroke='currentColor'></path>
-<path d='M 248,128 L 248,144' fill='none' stroke='currentColor'></path>
-<path d='M 248,208 L 248,224' fill='none' stroke='currentColor'></path>
-<path d='M 272,80 L 272,112' fill='none' stroke='currentColor'></path>
-<path d='M 288,160 L 288,192' fill='none' stroke='currentColor'></path>
-<path d='M 304,0 L 304,32' fill='none' stroke='currentColor'></path>
-<path d='M 304,240 L 304,272' fill='none' stroke='currentColor'></path>
-<path d='M 376,96 L 376,256' fill='none' stroke='currentColor'></path>
-<path d='M 512,240 L 512,272' fill='none' stroke='currentColor'></path>
-<path d='M 520,0 L 520,32' fill='none' stroke='currentColor'></path>
-<path d='M 536,160 L 536,192' fill='none' stroke='currentColor'></path>
-<path d='M 552,80 L 552,112' fill='none' stroke='currentColor'></path>
-<path d='M 576,48 L 576,64' fill='none' stroke='currentColor'></path>
-<path d='M 576,128 L 576,144' fill='none' stroke='currentColor'></path>
-<path d='M 576,208 L 576,224' fill='none' stroke='currentColor'></path>
-<path d='M 600,80 L 600,112' fill='none' stroke='currentColor'></path>
-<path d='M 616,160 L 616,192' fill='none' stroke='currentColor'></path>
-<path d='M 632,0 L 632,32' fill='none' stroke='currentColor'></path>
-<path d='M 632,240 L 632,272' fill='none' stroke='currentColor'></path>
-<path d='M 248,40 L 248,48' fill='none' stroke='currentColor'></path>
-<path d='M 248,120 L 248,128' fill='none' stroke='currentColor'></path>
-<path d='M 248,200 L 248,208' fill='none' stroke='currentColor'></path>
-<path d='M 576,40 L 576,48' fill='none' stroke='currentColor'></path>
-<path d='M 576,120 L 576,128' fill='none' stroke='currentColor'></path>
-<path d='M 576,200 L 576,208' fill='none' stroke='currentColor'></path>
-<polygon points='224.000000,96.000000 212.000000,90.400002 212.000000,101.599998' fill='currentColor' transform='rotate(0.000000, 216.000000, 96.000000)'></polygon>
-<path d='M 248,64 L 248,72' fill='none' stroke='currentColor'></path>
-<polygon points='264.000000,64.000000 252.000000,58.400002 252.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 248.000000, 64.000000)'></polygon>
-<path d='M 248,144 L 248,152' fill='none' stroke='currentColor'></path>
-<polygon points='264.000000,144.000000 252.000000,138.399994 252.000000,149.600006' fill='currentColor' transform='rotate(90.000000, 248.000000, 144.000000)'></polygon>
-<path d='M 248,224 L 248,232' fill='none' stroke='currentColor'></path>
-<polygon points='264.000000,224.000000 252.000000,218.399994 252.000000,229.600006' fill='currentColor' transform='rotate(90.000000, 248.000000, 224.000000)'></polygon>
-<polygon points='552.000000,96.000000 540.000000,90.400002 540.000000,101.599998' fill='currentColor' transform='rotate(0.000000, 544.000000, 96.000000)'></polygon>
-<path d='M 576,64 L 576,72' fill='none' stroke='currentColor'></path>
-<polygon points='592.000000,64.000000 580.000000,58.400002 580.000000,69.599998' fill='currentColor' transform='rotate(90.000000, 576.000000, 64.000000)'></polygon>
-<path d='M 576,144 L 576,152' fill='none' stroke='currentColor'></path>
-<polygon points='592.000000,144.000000 580.000000,138.399994 580.000000,149.600006' fill='currentColor' transform='rotate(90.000000, 576.000000, 144.000000)'></polygon>
-<path d='M 576,224 L 576,232' fill='none' stroke='currentColor'></path>
-<polygon points='592.000000,224.000000 580.000000,218.399994 580.000000,229.600006' fill='currentColor' transform='rotate(90.000000, 576.000000, 224.000000)'></polygon>
-<text text-anchor='middle' x='16' y='100' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='24' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='32' y='100' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='40' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='48' y='100' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='56' y='100' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='64' y='100' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='72' y='100' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='80' y='100' fill='currentColor' style='font-size:1em'>z</text>
-<text text-anchor='middle' x='88' y='100' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='96' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='104' y='100' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='112' y='100' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='120' y='100' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='136' y='100' fill='currentColor' style='font-size:1em'>v</text>
-<text text-anchor='middle' x='144' y='100' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='152' y='100' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='160' y='100' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='168' y='100' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='176' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='200' y='260' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='208' y='20' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='208' y='260' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='216' y='20' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='216' y='260' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='224' y='20' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='224' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='224' y='260' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='232' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='232' y='180' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='232' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='240' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='240' y='100' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='240' y='180' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='240' y='260' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='248' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='248' y='100' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='248' y='180' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='248' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='256' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='256' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='256' y='180' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='256' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='264' y='20' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='264' y='180' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='264' y='260' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='272' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='272' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='272' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='288' y='20' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='288' y='260' fill='currentColor' style='font-size:1em'>1</text>
-<text text-anchor='middle' x='528' y='260' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='536' y='20' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='536' y='260' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='544' y='20' fill='currentColor' style='font-size:1em'>l</text>
-<text text-anchor='middle' x='544' y='260' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='552' y='20' fill='currentColor' style='font-size:1em'>a</text>
-<text text-anchor='middle' x='552' y='180' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='552' y='260' fill='currentColor' style='font-size:1em'>h</text>
-<text text-anchor='middle' x='560' y='20' fill='currentColor' style='font-size:1em'>i</text>
-<text text-anchor='middle' x='560' y='180' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='560' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='568' y='20' fill='currentColor' style='font-size:1em'>n</text>
-<text text-anchor='middle' x='568' y='100' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='568' y='180' fill='currentColor' style='font-size:1em'>c</text>
-<text text-anchor='middle' x='568' y='260' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='576' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='576' y='100' fill='currentColor' style='font-size:1em'>o</text>
-<text text-anchor='middle' x='576' y='180' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='576' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='584' y='20' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='584' y='100' fill='currentColor' style='font-size:1em'>r</text>
-<text text-anchor='middle' x='584' y='180' fill='currentColor' style='font-size:1em'>y</text>
-<text text-anchor='middle' x='584' y='260' fill='currentColor' style='font-size:1em'>e</text>
-<text text-anchor='middle' x='592' y='20' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='592' y='180' fill='currentColor' style='font-size:1em'>p</text>
-<text text-anchor='middle' x='592' y='260' fill='currentColor' style='font-size:1em'>x</text>
-<text text-anchor='middle' x='600' y='20' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='600' y='180' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='600' y='260' fill='currentColor' style='font-size:1em'>t</text>
-<text text-anchor='middle' x='616' y='20' fill='currentColor' style='font-size:1em'>2</text>
-<text text-anchor='middle' x='616' y='260' fill='currentColor' style='font-size:1em'>2</text>
-</g>
-
-    </svg>
-  
-</div>
-<p>The <code>get_services</code> function from the original exploit must be slightly adjusted. We can either choose <code>AES.MODE_CBC</code> directly or just relay the original list and let the client choose it later, as it is the first mode in the list and therefore the default of this challenge.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># relay AES mode list -&gt; client will choose AES.MODE_CBC</span>
-</span></span><span style="display:flex;"><span>    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
-</span></span></code></pre></div><p>Since the last ciphertext block is a relevant property in CBC, we will store it with the connection. The first ciphertext we receive is the encrypted <code>finish</code> for the server. We can store it directly before the return of <code>get_services</code>. The client pads the finish message to 32 bytes despite it being shorter than 16 bytes and therefore fitting into only one block. This indicates, that the challenge author set <code>block_size</code> to 32 bytes. Furthermore we have to strip the new line at the end of the response.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># save last ciphertext block</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>last <span style="color:#f92672">=</span> finish<span style="color:#f92672">.</span>strip()[<span style="color:#f92672">-</span><span style="color:#ae81ff">32</span>:]
-</span></span></code></pre></div><p>The main control flow can be left unchanged.</p>
+<pre><code class="language-goat" data-lang="goat">                        .-------------.                          .-------------.
+                        | plaintext 1 |                          | plaintext 2 |
+                        '-------------'                          '-------------'
+                               |                                        |
+                               v                                        v
+.-----------------------.   .-----.                                  .-----.
+| initialization vector |--&gt;| xor |            .--------------------&gt;| xor |
+'-----------------------'   '-----'            |                     '-----'
+                               |               |                        |
+                               v               |                        v
+                          .---------.          |                   .---------.
+                          | encrypt |          |                   | encrypt |
+                          '---------'          |                   '---------'
+                               |               |                        |
+                               v               |                        v
+                       .--------------.        |                .--------------.
+                       | ciphertext 1 |--------'                | ciphertext 2 |
+                       '--------------'                         '--------------'
+</code></pre><p>The <code>get_services</code> function from the original exploit must be slightly adjusted. We can either choose <code>AES.MODE_CBC</code> directly or just relay the original list and let the client choose it later, as it is the first mode in the list and therefore the default of this challenge.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># relay AES mode list -&gt; client will choose AES.MODE_CBC</span>
+    server<span style="color:#f92672">.</span>send(client<span style="color:#f92672">.</span>recvline())
+</code></pre></div><p>Since the last ciphertext block is a relevant property in CBC, we will store it with the connection. The first ciphertext we receive is the encrypted <code>finish</code> for the server. We can store it directly before the return of <code>get_services</code>. The client pads the finish message to 32 bytes despite it being shorter than 16 bytes and therefore fitting into only one block. This indicates, that the challenge author set <code>block_size</code> to 32 bytes. Furthermore we have to strip the new line at the end of the response.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># save last ciphertext block</span>
+    client<span style="color:#f92672">.</span>last <span style="color:#f92672">=</span> finish<span style="color:#f92672">.</span>strip()[<span style="color:#f92672">-</span><span style="color:#ae81ff">32</span>:]
+</code></pre></div><p>The main control flow can be left unchanged.</p>
 <p>Unfortunately python does not natively support xoring variables of type <code>bytes</code>, so we have to write our own helper function. As the right side will always be the raw hex ciphertext, we will also handle the transformation in this helper function.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">bytes_xor_hex</span>(left, hex_right):
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> bytes(l<span style="color:#f92672">^</span>r <span style="color:#66d9ef">for</span> l, r <span style="color:#f92672">in</span> zip(left, bytes<span style="color:#f92672">.</span>fromhex(hex_right<span style="color:#f92672">.</span>decode())))
-</span></span></code></pre></div><p>Now we have to actually exploit the challenge. The basic strategy stays the same: we brute force the flag character by character and by aligning the character to brute force against the end of a block. The only thing to do is the xor. Since we cannot xor the flag appended to the prefix, we will leave the entire search request unchanged.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">brute_force_char</span>(client, flag, alphabet):
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># get encrypted flag part</span>
-</span></span><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()
-</span></span><span style="display:flex;"><span>    search <span style="color:#f92672">=</span> response[:<span style="color:#ae81ff">64</span>]
-</span></span></code></pre></div><p>For getting comparable ciphertexts, we have to revert the expected xor with the last ciphertext and apply the xor used for <code>search</code>. We have to do it only for the first block, because we only change the plaintext from the last character of the second block onwards. By xoring with the last ciphertext block and the one before the first search block, the ciphertext of the first block will be the same as the first one in <code>search</code>.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#75715e"># precompute prefix ^ search</span>
-</span></span><span style="display:flex;"><span>    prefix <span style="color:#f92672">=</span> (<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)) <span style="color:#f92672">+</span> flag)<span style="color:#f92672">.</span>encode()
-</span></span><span style="display:flex;"><span>    prefix <span style="color:#f92672">=</span> bytes_xor_hex(prefix[:<span style="color:#ae81ff">16</span>], client<span style="color:#f92672">.</span>last) <span style="color:#f92672">+</span> prefix[<span style="color:#ae81ff">16</span>:]
-</span></span></code></pre></div><p>Since we no longer need <code>client.last</code> and can update it with the last block of the last ciphertext.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    client<span style="color:#f92672">.</span>last <span style="color:#f92672">=</span> response<span style="color:#f92672">.</span>strip()[<span style="color:#f92672">-</span><span style="color:#ae81ff">32</span>:]
-</span></span></code></pre></div><p>Now we can try all characters of the alphabet. For each request, we have to revert the upcoming xor by xoring with the last ciphertext.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> alphabet:
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># encrypt guess</span>
-</span></span><span style="display:flex;"><span>        request <span style="color:#f92672">=</span> bytes_xor_hex(prefix[:<span style="color:#ae81ff">16</span>], client<span style="color:#f92672">.</span>last) <span style="color:#f92672">+</span> prefix[<span style="color:#ae81ff">16</span>:] <span style="color:#f92672">+</span> c<span style="color:#f92672">.</span>encode()
-</span></span><span style="display:flex;"><span>        client<span style="color:#f92672">.</span>sendline(request<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
-</span></span><span style="display:flex;"><span>        response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># Update last ciphertext block</span>
-</span></span><span style="display:flex;"><span>        client<span style="color:#f92672">.</span>last <span style="color:#f92672">=</span> response<span style="color:#f92672">.</span>strip()[<span style="color:#f92672">-</span><span style="color:#ae81ff">32</span>:]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># return if correct char found</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> response[:<span style="color:#ae81ff">64</span>] <span style="color:#f92672">==</span> search:
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> c
-</span></span></code></pre></div><p>And now we get the flag in approximately the same time as the first exploit, even without forcing the client to use ECB.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">bytes_xor_hex</span>(left, hex_right):
+    <span style="color:#66d9ef">return</span> bytes(l<span style="color:#f92672">^</span>r <span style="color:#66d9ef">for</span> l, r <span style="color:#f92672">in</span> zip(left, bytes<span style="color:#f92672">.</span>fromhex(hex_right<span style="color:#f92672">.</span>decode())))
+</code></pre></div><p>Now we have to actually exploit the challenge. The basic strategy stays the same: we brute force the flag character by character and by aligning the character to brute force against the end of a block. The only thing to do is the xor. Since we cannot xor the flag appended to the prefix, we will leave the entire search request unchanged.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">brute_force_char</span>(client, flag, alphabet):
+    <span style="color:#75715e"># get encrypted flag part</span>
+    client<span style="color:#f92672">.</span>sendline((<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)))<span style="color:#f92672">.</span>encode()<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+    response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()
+    search <span style="color:#f92672">=</span> response[:<span style="color:#ae81ff">64</span>]
+</code></pre></div><p>For getting comparable ciphertexts, we have to revert the expected xor with the last ciphertext and apply the xor used for <code>search</code>. We have to do it only for the first block, because we only change the plaintext from the last character of the second block onwards. By xoring with the last ciphertext block and the one before the first search block, the ciphertext of the first block will be the same as the first one in <code>search</code>.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#75715e"># precompute prefix ^ search</span>
+    prefix <span style="color:#f92672">=</span> (<span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">31</span><span style="color:#f92672">-</span>len(flag)) <span style="color:#f92672">+</span> flag)<span style="color:#f92672">.</span>encode()
+    prefix <span style="color:#f92672">=</span> bytes_xor_hex(prefix[:<span style="color:#ae81ff">16</span>], client<span style="color:#f92672">.</span>last) <span style="color:#f92672">+</span> prefix[<span style="color:#ae81ff">16</span>:]
+</code></pre></div><p>Since we no longer need <code>client.last</code> and can update it with the last block of the last ciphertext.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    client<span style="color:#f92672">.</span>last <span style="color:#f92672">=</span> response<span style="color:#f92672">.</span>strip()[<span style="color:#f92672">-</span><span style="color:#ae81ff">32</span>:]
+</code></pre></div><p>Now we can try all characters of the alphabet. For each request, we have to revert the upcoming xor by xoring with the last ciphertext.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> alphabet:
+        <span style="color:#75715e"># encrypt guess</span>
+        request <span style="color:#f92672">=</span> bytes_xor_hex(prefix[:<span style="color:#ae81ff">16</span>], client<span style="color:#f92672">.</span>last) <span style="color:#f92672">+</span> prefix[<span style="color:#ae81ff">16</span>:] <span style="color:#f92672">+</span> c<span style="color:#f92672">.</span>encode()
+        client<span style="color:#f92672">.</span>sendline(request<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode())
+        response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>recvline()
+
+        <span style="color:#75715e"># Update last ciphertext block</span>
+        client<span style="color:#f92672">.</span>last <span style="color:#f92672">=</span> response<span style="color:#f92672">.</span>strip()[<span style="color:#f92672">-</span><span style="color:#ae81ff">32</span>:]
+
+        <span style="color:#75715e"># return if correct char found</span>
+        <span style="color:#66d9ef">if</span> response[:<span style="color:#ae81ff">64</span>] <span style="color:#f92672">==</span> search:
+            <span style="color:#66d9ef">return</span> c
+</code></pre></div><p>And now we get the flag in approximately the same time as the first exploit, even without forcing the client to use ECB.</p>
 
       </div></div>
 
@@ -1356,6 +653,13 @@ Because the premaster secret is send encrypted, the session key is only known to
         <hr />
     </div>
     <div class="pagination__buttons">
+        
+        <span class="button previous">
+            <a href="/posts/csr22-misc-me-plx/">
+                <span class="button__icon">←</span>
+                <span class="button__text">Cyber Security Rumble 2022 - Misc Me Plx</span>
+            </a>
+        </span>
         
         
         <span class="button next">

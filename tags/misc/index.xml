@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>misc on CyberTaskForce Zero</title>
+    <link>/tags/misc/</link>
+    <description>Recent content in misc on CyberTaskForce Zero</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
+    <lastBuildDate>Sat, 08 Oct 2022 23:59:13 +0100</lastBuildDate><atom:link href="/tags/misc/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Cyber Security Rumble 2022 - Misc Me Plx</title>
+      <link>/posts/csr22-misc-me-plx/</link>
+      <pubDate>Sat, 08 Oct 2022 23:59:13 +0100</pubDate>
+      
+      <guid>/posts/csr22-misc-me-plx/</guid>
+      <description>Description: I like to sniff buses.
+Challenge author: Skipper|RedRocket
+We get:
+90K recording.sr one unzip later
+ 10M logic-1-1 10M logic-1-2 10M logic-1-3 10M logic-1-4 10M logic-1-5 10M logic-1-6 10M logic-1-7 10M logic-1-8 7,5M logic-1-9 201 metadata 90K recording.sr 1 version # cat metadata [global] sigrok version=0.5.2 [device 1] capturefile=logic-1 total probes=8 samplerate=24 MHz total analog=0 probe1=D0 probe2=D1 probe3=D2 probe4=D3 probe5=D4 probe6=D5 probe7=D6 probe8=D7 unitsize=1 View it in PulseView (GUI of sigrok)</description>
+      <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
+&lt;p&gt;I like to sniff buses.&lt;/p&gt;
+&lt;p&gt;Challenge author: Skipper|RedRocket&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_bus_sniffer.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+&lt;p&gt;We get:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;90K recording.sr
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;em&gt;one &lt;code&gt;unzip&lt;/code&gt; later&lt;/em&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; 10M logic-1-1
+ 10M logic-1-2
+ 10M logic-1-3
+ 10M logic-1-4
+ 10M logic-1-5
+ 10M logic-1-6
+ 10M logic-1-7
+ 10M logic-1-8
+7,5M logic-1-9
+ 201 metadata
+ 90K recording.sr
+   1 version
+&lt;/code&gt;&lt;/pre&gt;&lt;pre&gt;&lt;code&gt;# cat metadata
+
+[global]
+sigrok version=0.5.2
+
+[device 1]
+capturefile=logic-1
+total probes=8
+samplerate=24 MHz
+total analog=0
+probe1=D0
+probe2=D1
+probe3=D2
+probe4=D3
+probe5=D4
+probe6=D5
+probe7=D6
+probe8=D7
+unitsize=1
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;View it in PulseView (GUI of sigrok)&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_pulse.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+&lt;p&gt;D7 looks like a clock pulse.
+When googling &amp;ldquo;clock bus protocol&amp;rdquo; &lt;strong&gt;I²C&lt;/strong&gt; seems to pop up quite often.
+I try adding a decoder using the sigrok-cli:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;# sigrok -i ~/ctf/csr22/miscmeplx/recording.sr -P i2c:scl=D7:sda=D6 | grep &amp;quot;Data write&amp;quot;
+i2c-1: Data write: 69
+i2c-1: Data write: 6E
+i2c-1: Data write: 69
+i2c-1: Data write: 74
+i2c-1: Data write: 5F
+i2c-1: Data write: 70
+i2c-1: Data write: 72
+i2c-1: Data write: 6F
+i2c-1: Data write: 67
+i2c-1: Data write: 5F
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;After converting the bytes to ascii we see:
+&lt;code&gt;init_prog_addr__77_1_2_01șCSR{i2c_d0_b3_v3ry_31337}_|&amp;gt;|&amp;gt;|&amp;gt;򀀀&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Yeah!&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_doggo.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+</content>
+    </item>
+    
+  </channel>
+</rss>

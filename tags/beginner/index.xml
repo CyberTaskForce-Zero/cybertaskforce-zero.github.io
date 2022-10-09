@@ -7,7 +7,80 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
-    <lastBuildDate>Tue, 03 Aug 2021 23:59:13 +0100</lastBuildDate><atom:link href="/tags/beginner/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sat, 08 Oct 2022 23:59:13 +0100</lastBuildDate><atom:link href="/tags/beginner/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Cyber Security Rumble 2022 - Misc Me Plx</title>
+      <link>/posts/csr22-misc-me-plx/</link>
+      <pubDate>Sat, 08 Oct 2022 23:59:13 +0100</pubDate>
+      
+      <guid>/posts/csr22-misc-me-plx/</guid>
+      <description>Description: I like to sniff buses.
+Challenge author: Skipper|RedRocket
+We get:
+90K recording.sr one unzip later
+ 10M logic-1-1 10M logic-1-2 10M logic-1-3 10M logic-1-4 10M logic-1-5 10M logic-1-6 10M logic-1-7 10M logic-1-8 7,5M logic-1-9 201 metadata 90K recording.sr 1 version # cat metadata [global] sigrok version=0.5.2 [device 1] capturefile=logic-1 total probes=8 samplerate=24 MHz total analog=0 probe1=D0 probe2=D1 probe3=D2 probe4=D3 probe5=D4 probe6=D5 probe7=D6 probe8=D7 unitsize=1 View it in PulseView (GUI of sigrok)</description>
+      <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
+&lt;p&gt;I like to sniff buses.&lt;/p&gt;
+&lt;p&gt;Challenge author: Skipper|RedRocket&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_bus_sniffer.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+&lt;p&gt;We get:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;90K recording.sr
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;em&gt;one &lt;code&gt;unzip&lt;/code&gt; later&lt;/em&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; 10M logic-1-1
+ 10M logic-1-2
+ 10M logic-1-3
+ 10M logic-1-4
+ 10M logic-1-5
+ 10M logic-1-6
+ 10M logic-1-7
+ 10M logic-1-8
+7,5M logic-1-9
+ 201 metadata
+ 90K recording.sr
+   1 version
+&lt;/code&gt;&lt;/pre&gt;&lt;pre&gt;&lt;code&gt;# cat metadata
+
+[global]
+sigrok version=0.5.2
+
+[device 1]
+capturefile=logic-1
+total probes=8
+samplerate=24 MHz
+total analog=0
+probe1=D0
+probe2=D1
+probe3=D2
+probe4=D3
+probe5=D4
+probe6=D5
+probe7=D6
+probe8=D7
+unitsize=1
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;View it in PulseView (GUI of sigrok)&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_pulse.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+&lt;p&gt;D7 looks like a clock pulse.
+When googling &amp;ldquo;clock bus protocol&amp;rdquo; &lt;strong&gt;I²C&lt;/strong&gt; seems to pop up quite often.
+I try adding a decoder using the sigrok-cli:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;# sigrok -i ~/ctf/csr22/miscmeplx/recording.sr -P i2c:scl=D7:sda=D6 | grep &amp;quot;Data write&amp;quot;
+i2c-1: Data write: 69
+i2c-1: Data write: 6E
+i2c-1: Data write: 69
+i2c-1: Data write: 74
+i2c-1: Data write: 5F
+i2c-1: Data write: 70
+i2c-1: Data write: 72
+i2c-1: Data write: 6F
+i2c-1: Data write: 67
+i2c-1: Data write: 5F
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;After converting the bytes to ascii we see:
+&lt;code&gt;init_prog_addr__77_1_2_01șCSR{i2c_d0_b3_v3ry_31337}_|&amp;gt;|&amp;gt;|&amp;gt;򀀀&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Yeah!&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_doggo.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+</content>
+    </item>
+    
     <item>
       <title>UIUCTF 2021: back_to_basics</title>
       <link>/posts/uiuctf2021-back-to-basics/</link>
@@ -19,182 +92,182 @@ main.py from Crypto.Util.number import long_to_bytes, bytes_to_long from gmpy2 i
       <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
 &lt;p&gt;Shoutout to those people who think that base64 is proper encryption&lt;/p&gt;
 &lt;h4 id=&#34;mainpy&#34;&gt;main.py&lt;/h4&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Util.number &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; long_to_bytes, bytes_to_long
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; gmpy2 &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; mpz, to_binary
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#from secret import flag, key&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_encode&lt;/span&gt;(bytes_in, base):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; mpz(bytes_to_long(bytes_in))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits(base)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;upper()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_decode&lt;/span&gt;(bytes_in, base):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	bytes_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; to_binary(mpz(bytes_in, base&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;base))[:&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; bytes_out
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;encrypt&lt;/span&gt;(bytes_in, key):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		print(i)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_encode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt&lt;/span&gt;(bytes_in, key):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;flag_enc = encrypt(flag, key)
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f = open(&amp;#34;flag_enc&amp;#34;, &amp;#34;wb&amp;#34;)
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f.write(flag_enc)
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f.close()
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h4 id=&#34;flag_enc&#34;&gt;flag_enc&lt;/h4&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Util.number &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; long_to_bytes, bytes_to_long
+&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; gmpy2 &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; mpz, to_binary
+&lt;span style=&#34;color:#75715e&#34;&gt;#from secret import flag, key&lt;/span&gt;
+
+ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&amp;#34;&lt;/span&gt;)
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_encode&lt;/span&gt;(bytes_in, base):
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; mpz(bytes_to_long(bytes_in))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits(base)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;upper()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_decode&lt;/span&gt;(bytes_in, base):
+	bytes_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; to_binary(mpz(bytes_in, base&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;base))[:&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;]
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; bytes_out
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;encrypt&lt;/span&gt;(bytes_in, key):
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(i)
+		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_encode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt&lt;/span&gt;(bytes_in, key):
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
+		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
+
+&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;
+&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;flag_enc = encrypt(flag, key)
+&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f = open(&amp;#34;flag_enc&amp;#34;, &amp;#34;wb&amp;#34;)
+&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f.write(flag_enc)
+&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f.close()
+&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h4 id=&#34;flag_enc&#34;&gt;flag_enc&lt;/h4&gt;
 &lt;p&gt;The file can be found in the authors&amp;rsquo; repository: &lt;a href=&#34;https://github.com/sigpwny/UIUCTF-2021-Public/blob/master/crypto/back_to_basics/public/flag_enc&#34;&gt;&lt;code&gt;flag_enc&lt;/code&gt;&lt;/a&gt;&lt;/p&gt;
 &lt;hr&gt;
 &lt;p&gt;Let&amp;rsquo;s look at the provided script:&lt;/p&gt;
 &lt;p&gt;As first step the alphabet of the key is defined:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;base_n_encode&lt;/code&gt; reads the bytes of the given string as one big integer and expresses it in the given base.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_encode&lt;/span&gt;(bytes_in, base):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; mpz(bytes_to_long(bytes_in))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits(base)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;upper()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;base_n_decode&lt;/code&gt; reads the string as string-representation of a big integer in the given base and returns the binary representation of this integer.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_decode&lt;/span&gt;(bytes_in, base):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	bytes_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; to_binary(mpz(bytes_in, base&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;base))[:&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; bytes_out
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;encrypt&lt;/code&gt; takes each char of the key and uses it as base for &lt;code&gt;base_n_encode&lt;/code&gt;. For getting an integer base, the char is searched in the above alphabet and the position is used as base.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;encrypt&lt;/span&gt;(bytes_in, key):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		print(i)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_encode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;decrypt&lt;/code&gt; takes each char of the key and uses in the same way as in &lt;code&gt;encode&lt;/code&gt; for decoding the string with &lt;code&gt;base_n_decode&lt;/code&gt;.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt&lt;/span&gt;(bytes_in, key):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Finally, there is a comment, which explains, how &lt;code&gt;flag_enc&lt;/code&gt; was created:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;flag_enc &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; encrypt(flag, key)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;f &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;flag_enc&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;wb&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(flag_enc)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;close()
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;hr&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&amp;#34;&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;base_n_encode&lt;/code&gt; reads the bytes of the given string as one big integer and expresses it in the given base.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_encode&lt;/span&gt;(bytes_in, base):
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; mpz(bytes_to_long(bytes_in))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits(base)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;upper()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;base_n_decode&lt;/code&gt; reads the string as string-representation of a big integer in the given base and returns the binary representation of this integer.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_decode&lt;/span&gt;(bytes_in, base):
+	bytes_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; to_binary(mpz(bytes_in, base&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;base))[:&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;]
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; bytes_out
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;encrypt&lt;/code&gt; takes each char of the key and uses it as base for &lt;code&gt;base_n_encode&lt;/code&gt;. For getting an integer base, the char is searched in the above alphabet and the position is used as base.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;encrypt&lt;/span&gt;(bytes_in, key):
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(i)
+		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_encode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;decrypt&lt;/code&gt; takes each char of the key and uses in the same way as in &lt;code&gt;encode&lt;/code&gt; for decoding the string with &lt;code&gt;base_n_decode&lt;/code&gt;.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt&lt;/span&gt;(bytes_in, key):
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
+		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Finally, there is a comment, which explains, how &lt;code&gt;flag_enc&lt;/code&gt; was created:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;flag_enc &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; encrypt(flag, key)
+f &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;flag_enc&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;wb&amp;#34;&lt;/span&gt;)
+f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(flag_enc)
+f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;close()
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;hr&gt;
 &lt;p&gt;At the start some considerations:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;0&lt;/code&gt; and &lt;code&gt;1&lt;/code&gt; cannot be part of the string, as their indices in the alphabet (&lt;code&gt;0&lt;/code&gt; &amp;amp; &lt;code&gt;1&lt;/code&gt;) are no bases&lt;/li&gt;
 &lt;li&gt;The base of the encrypted text will always be greater than each char in the text, as all characters in a string with base &lt;code&gt;b&lt;/code&gt; are from interval &lt;code&gt;[0, b-1]&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;With this knowledge, we can start the decryption. First we need to load the encrypted flag:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;flag_enc&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;rb&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;For debug purposes we initialize some variables:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;round &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As we don&amp;rsquo;t know when we are done, we first loop infinitely. Furthermore we want to keep our debug variable up to date.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	round &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;First we determine the alphabet of the current string:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	alphabet &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; set(out)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;We only need the maximum for determining the smallest possible base. And again some debug printing.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	m &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; max(alphabet)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;: used &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;, &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;format(round, m, alphabet))
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Let&amp;rsquo;s get the smallest base. If the char is not found, the script will fail at this point with an error.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(m) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can determine whether the calculated base is in range.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; b &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; len(ALPHABET):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can test for all possible bases and collect possible indices&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	indices &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; list()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(b, len(ALPHABET)):
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As the decryption can fail, and we don&amp;rsquo;t want the script to be aborted, we have to wrap it in &lt;code&gt;try&lt;/code&gt;. And again some debug printing.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			new_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, i)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			print(max(new_out), min(new_out))
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As &lt;code&gt;#&lt;/code&gt; cannot be in the string and as the chars build a continues block in ASCII, we can simply check the boundaries to determine whether the decrypted string matches our requirements and the index is a candidate:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;90&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				indices&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(i)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Because the flag will have some additional chars outside this range, we also check if the decrypted string is a potential flag. For preventing spam, we also check the length and hope, that the flag is shorter than 100 chars. If not, we have to adjust the length.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;125&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; len(out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				print(&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;key: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; chr(ALPHABET[i])&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;, possible flag: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;new_out&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;If the decryption fails, we don&amp;rsquo;t want to do something. As python requires a statement in except, we do some useless assignment.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;except&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			log &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;For proceeding, we need an index. Let&amp;rsquo;s exit, if we haven&amp;rsquo;t found one.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(indices) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we must select the index for the next round. As it is unlikely that the base is much higher than the maximum char in the string, we use the smallest working base. As we haven&amp;rsquo;t stored the decrypted string, we have to decrypt it again. Furthermore we append the used character from the alphabet to the key. And again some debug printing.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;])
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	key &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; chr(ALPHABET[indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]])
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(key)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(indices)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;round&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;: used &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;chr(ALPHABET[b])&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;, len: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;len(out)&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The whole script looks as following:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Util.number &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; long_to_bytes, bytes_to_long
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; gmpy2 &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; mpz, to_binary
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#from secret import flag, key&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_encode&lt;/span&gt;(bytes_in, base):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; mpz(bytes_to_long(bytes_in))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits(base)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;upper()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_decode&lt;/span&gt;(bytes_in, base):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	bytes_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; to_binary(mpz(bytes_in, base&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;base))[:&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; bytes_out
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;encrypt&lt;/span&gt;(bytes_in, key):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		print(i)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_encode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt&lt;/span&gt;(bytes_in, key):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;flag_enc&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;rb&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;round &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	round &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	alphabet &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; set(out)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	m &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; max(alphabet)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;: used &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;, &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;format(round, m, alphabet))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(m) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; b &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; len(ALPHABET):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	indices &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; list()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(b, len(ALPHABET)):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			new_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, i)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			print(max(new_out), min(new_out))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;90&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				indices&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(i)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;125&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; len(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				print(&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;key: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; chr(ALPHABET[i])&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;, possible flag: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;new_out&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;except&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			log &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(indices) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;])
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	key &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; chr(ALPHABET[indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]])
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(key)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(indices)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	print(&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;round&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;: used &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;chr(ALPHABET[b])&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;, len: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;len(out)&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;In the output we find the flag (&lt;code&gt;b&#39;uiuctf{r4DixAL}&#39;&lt;/code&gt;) and the corresponding key (&lt;code&gt;WM5Z8CRJABXJDJ5W&lt;/code&gt;).&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;flag_enc&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;rb&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;For debug purposes we initialize some variables:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;round &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As we don&amp;rsquo;t know when we are done, we first loop infinitely. Furthermore we want to keep our debug variable up to date.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; True:
+	round &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;First we determine the alphabet of the current string:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;	alphabet &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; set(out)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;We only need the maximum for determining the smallest possible base. And again some debug printing.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;	m &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; max(alphabet)
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{}: used {}, {}&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;format(round, m, alphabet))
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Let&amp;rsquo;s get the smallest base. If the char is not found, the script will fail at this point with an error.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;	b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(m) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can determine whether the calculated base is in range.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; b &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; len(ALPHABET):
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
+		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can test for all possible bases and collect possible indices&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;	indices &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; list()
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(b, len(ALPHABET)):
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As the decryption can fail, and we don&amp;rsquo;t want the script to be aborted, we have to wrap it in &lt;code&gt;try&lt;/code&gt;. And again some debug printing.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;:
+			new_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, i)
+			&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(max(new_out), min(new_out))
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As &lt;code&gt;#&lt;/code&gt; cannot be in the string and as the chars build a continues block in ASCII, we can simply check the boundaries to determine whether the decrypted string matches our requirements and the index is a candidate:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;90&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt;:
+				indices&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(i)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Because the flag will have some additional chars outside this range, we also check if the decrypted string is a potential flag. For preventing spam, we also check the length and hope, that the flag is shorter than 100 chars. If not, we have to adjust the length.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;125&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; len(out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;:
+				&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(f&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;key: {key + chr(ALPHABET[i])}, possible flag: {new_out}&amp;#34;&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;If the decryption fails, we don&amp;rsquo;t want to do something. As python requires a statement in except, we do some useless assignment.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;except&lt;/span&gt;:
+			log &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;For proceeding, we need an index. Let&amp;rsquo;s exit, if we haven&amp;rsquo;t found one.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(indices) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
+		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we must select the index for the next round. As it is unlikely that the base is much higher than the maximum char in the string, we use the smallest working base. As we haven&amp;rsquo;t stored the decrypted string, we have to decrypt it again. Furthermore we append the used character from the alphabet to the key. And again some debug printing.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;])
+	key &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; chr(ALPHABET[indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]])
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(key)
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(indices)
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(f&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{round}: used {chr(ALPHABET[b])}, len: {len(out)}&amp;#34;&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The whole script looks as following:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Util.number &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; long_to_bytes, bytes_to_long
+&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; gmpy2 &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; mpz, to_binary
+&lt;span style=&#34;color:#75715e&#34;&gt;#from secret import flag, key&lt;/span&gt;
+
+ALPHABET &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray(&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#&amp;#34;&lt;/span&gt;)
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_encode&lt;/span&gt;(bytes_in, base):
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; mpz(bytes_to_long(bytes_in))&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;digits(base)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;upper()&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode()
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;base_n_decode&lt;/span&gt;(bytes_in, base):
+	bytes_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; to_binary(mpz(bytes_in, base&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;base))[:&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;]
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; bytes_out
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;encrypt&lt;/span&gt;(bytes_in, key):
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(i)
+		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_encode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt&lt;/span&gt;(bytes_in, key):
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes_in
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; key:
+		out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(i))
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; out
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;flag_enc&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;rb&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
+
+round &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; True:
+	round &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+	alphabet &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; set(out)
+	m &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; max(alphabet)
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{}: used {}, {}&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;format(round, m, alphabet))
+	b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ALPHABET&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;index(m) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; b &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; len(ALPHABET):
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
+		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
+	indices &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; list()
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(b, len(ALPHABET)):
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;:
+			new_out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, i)
+			&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(max(new_out), min(new_out))
+			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;90&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt;:
+				indices&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(i)
+			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; max(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;125&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; min(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;48&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; len(new_out) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;:
+				&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(f&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;key: {key + chr(ALPHABET[i])}, possible flag: {new_out}&amp;#34;&lt;/span&gt;)
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;except&lt;/span&gt;:
+			log &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(indices) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;:
+		&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;no&amp;#34;&lt;/span&gt;)
+		exit(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)
+	out &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; base_n_decode(out, indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;])
+	key &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; chr(ALPHABET[indices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]])
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(key)
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(indices)
+	&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(f&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{round}: used {chr(ALPHABET[b])}, len: {len(out)}&amp;#34;&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;In the output we find the flag (&lt;code&gt;b&#39;uiuctf{r4DixAL}&#39;&lt;/code&gt;) and the corresponding key (&lt;code&gt;WM5Z8CRJABXJDJ5W&lt;/code&gt;).&lt;/p&gt;
 </content>
     </item>
     
@@ -209,206 +282,206 @@ dhkectf_intro.py import random from Crypto.Cipher import AES # generate key gpLi
       <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
 &lt;p&gt;Small numbers are bad in cryptography. This is why.&lt;/p&gt;
 &lt;h4 id=&#34;dhkectf_intropy&#34;&gt;dhkectf_intro.py&lt;/h4&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; random
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Cipher &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; AES
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# generate key&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;gpList &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [ [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;23&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;29&lt;/span&gt;] ]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;g, p &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choice(gpList)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;a &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pow(g, a &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; b, p)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(k)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Diffie-Hellman key exchange outputs&amp;#34;)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Public key: &amp;#34;, g, p)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Jotaro sends: &amp;#34;, aNum)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Dio sends: &amp;#34;, bNum)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# print()&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# pad key to 16 bytes (128bit)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;flag.txt&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;rb&amp;#39;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ciphertext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encrypt(flag)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(ciphertext&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex())
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h4 id=&#34;outputtxt&#34;&gt;output.txt&lt;/h4&gt;
-&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;b31699d587f7daf8f6b23b30cfee0edca5d6a3594cd53e1646b9e72de6fc44fe7ad40f0ea6
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; random
+&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Cipher &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; AES
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# generate key&lt;/span&gt;
+gpList &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [ [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;23&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;29&lt;/span&gt;] ]
+g, p &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choice(gpList)
+a &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
+b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
+k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pow(g, a &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; b, p)
+k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(k)
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Diffie-Hellman key exchange outputs&amp;#34;)&lt;/span&gt;
+&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Public key: &amp;#34;, g, p)&lt;/span&gt;
+&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Jotaro sends: &amp;#34;, aNum)&lt;/span&gt;
+&lt;span style=&#34;color:#75715e&#34;&gt;# print(&amp;#34;Dio sends: &amp;#34;, bNum)&lt;/span&gt;
+&lt;span style=&#34;color:#75715e&#34;&gt;# print()&lt;/span&gt;
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# pad key to 16 bytes (128bit)&lt;/span&gt;
+key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
+i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
+    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
+    i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
+key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;flag.txt&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;rb&amp;#39;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+    flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
+
+iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
+ciphertext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encrypt(flag)
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(ciphertext&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex())
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h4 id=&#34;outputtxt&#34;&gt;output.txt&lt;/h4&gt;
+&lt;pre&gt;&lt;code&gt;b31699d587f7daf8f6b23b30cfee0edca5d6a3594cd53e1646b9e72de6fc44fe7ad40f0ea6
 &lt;/code&gt;&lt;/pre&gt;&lt;hr&gt;
 &lt;p&gt;Let&amp;rsquo;s look at the python script:&lt;/p&gt;
 &lt;p&gt;The script contains a list of tuples of prime numbers and chooses one tuple randomly. The primes will be used for a Diffie-Hellman key exchange. The first prime will be used as generator and the second one as module.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;gpList &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [ [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;23&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;29&lt;/span&gt;] ]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;g, p &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choice(gpList)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After agreeing on the generator, each party generates its secret:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;a &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Normally the following would happen:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;gpList &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [ [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;23&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;29&lt;/span&gt;] ]
+g, p &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choice(gpList)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After agreeing on the generator, each party generates its secret:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;a &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
+b &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; random&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;randint(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Normally the following would happen:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;Alice calculates &lt;code&gt;g^a % p&lt;/code&gt; and sends it to Bob, Bob calculates &lt;code&gt;g^b % p&lt;/code&gt; and sends it to Alice&lt;/li&gt;
 &lt;li&gt;Alice calculates with the received value from Bob &lt;code&gt;(g^b % p)^a % p&lt;/code&gt;, Bob does the same&lt;/li&gt;
 &lt;li&gt;Now Alice and Bob have the same secret key: &lt;code&gt;(g^b % p)^a % p = (g^b)^a % p = g^(b*a) % p = g^(a*b) % p = (g^a)^b % p = (g^a % p)^b % p&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;As the authors use Diffie-Hellman just to generate a key locally, they simplified this:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pow(g, a &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; b, p)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After that the key is converted to string for later use:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(k)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As we now have generated a secret key with Diffie-Hellman this key is used in AES for encrypting the flag.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pow(g, a &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; b, p)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After that the key is converted to string for later use:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(k)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As we now have generated a secret key with Diffie-Hellman this key is used in AES for encrypting the flag.&lt;/p&gt;
 &lt;p&gt;As AES needs a 128-bit key, we have to blow up our key. The script chooses the easy way and adds constant padding in front of the key:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# pad key to 16 bytes (128bit)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Then the key is converted to bytes for the AES-Function:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After that the flag is read from file:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;flag.txt&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;rb&amp;#39;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;AES needs an initialization vector. The authors decided to use a constant initialization vector. This has the advantage, that the initialization vector must not be stored with the encrypted text, so that we can handle the output.txt easier. On the other side this destroys the reason for the initialization vector which should prevent that all messages with the same first block have the same first ciphertext block. As we have only one message, this is irrelevant.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now the flag is encrypted:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ciphertext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encrypt(flag)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Finally, the encrypted text is written in hex to the given output.txt:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(ciphertext&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex())
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;hr&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# pad key to 16 bytes (128bit)&lt;/span&gt;
+key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
+i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
+    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
+    i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Then the key is converted to bytes for the AES-Function:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After that the flag is read from file:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;flag.txt&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;rb&amp;#39;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+    flag &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;AES needs an initialization vector. The authors decided to use a constant initialization vector. This has the advantage, that the initialization vector must not be stored with the encrypted text, so that we can handle the output.txt easier. On the other side this destroys the reason for the initialization vector which should prevent that all messages with the same first block have the same first ciphertext block. As we have only one message, this is irrelevant.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now the flag is encrypted:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
+ciphertext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encrypt(flag)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Finally, the encrypted text is written in hex to the given output.txt:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(ciphertext&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;hex())
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;hr&gt;
 &lt;p&gt;Now we can try to decrypt the flag. First we need to read the encrypted flag:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;output.txt&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;r&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    output &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read())
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As &lt;code&gt;gpList&lt;/code&gt; is short and the used modules are small, we can simply test all tuples:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; pair &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; gpList:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    g, p &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pair
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(g, p, pair)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As the module is small, we can test all possible &lt;code&gt;a&lt;/code&gt; and &lt;code&gt;b&lt;/code&gt;. Without loss of generality we can assume &lt;code&gt;b &amp;gt;= a&lt;/code&gt;, since multiplication is commutative.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; a &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; b &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(a, p&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;):
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;We have to use &lt;code&gt;p+1&lt;/code&gt;, because &lt;code&gt;randInt(a,b)&lt;/code&gt; uses the interval &lt;code&gt;[a, b]&lt;/code&gt; whereas &lt;code&gt;range(a,b)&lt;/code&gt; uses the interval &lt;code&gt;[a, b)&lt;/code&gt;.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;output.txt&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;r&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+    output &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read())
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As &lt;code&gt;gpList&lt;/code&gt; is short and the used modules are small, we can simply test all tuples:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; pair &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; gpList:
+    g, p &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pair
+    &lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(g, p, pair)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As the module is small, we can test all possible &lt;code&gt;a&lt;/code&gt; and &lt;code&gt;b&lt;/code&gt;. Without loss of generality we can assume &lt;code&gt;b &amp;gt;= a&lt;/code&gt;, since multiplication is commutative.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; a &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, p&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;):
+        &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; b &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(a, p&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;):
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;We have to use &lt;code&gt;p+1&lt;/code&gt;, because &lt;code&gt;randInt(a,b)&lt;/code&gt; uses the interval &lt;code&gt;[a, b]&lt;/code&gt; whereas &lt;code&gt;range(a,b)&lt;/code&gt; uses the interval &lt;code&gt;[a, b)&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;Now we can copy the computation of the key from the provided encryption script:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#a = random.randint(1, p)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#b = random.randint(1, p)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pow(g, a &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; b, p)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(k)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Diffie-Hellman key exchange outputs&amp;#34;)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Public key: &amp;#34;, g, p)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Jotaro sends: &amp;#34;, aNum)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Dio sends: &amp;#34;, bNum)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#print()&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;#pad key to 16 bytes (128bit)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After initializing AES&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;we can try to decrypt the flag.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            cleartext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(output)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As we know the beginning of the flag, we can filter the output:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; cleartext[:&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;uiuctf{&amp;#39;&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                print(cleartext)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;When we now execute the script, we will see the correct flag can be decrypted with different tuples and even multiple times per tuple:&lt;/p&gt;
-&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;[13, 19]
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#a = random.randint(1, p)&lt;/span&gt;
+    &lt;span style=&#34;color:#75715e&#34;&gt;#b = random.randint(1, p)&lt;/span&gt;
+            k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pow(g, a &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; b, p)
+            k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(k)
+
+    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Diffie-Hellman key exchange outputs&amp;#34;)&lt;/span&gt;
+    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Public key: &amp;#34;, g, p)&lt;/span&gt;
+    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Jotaro sends: &amp;#34;, aNum)&lt;/span&gt;
+    &lt;span style=&#34;color:#75715e&#34;&gt;#print(&amp;#34;Dio sends: &amp;#34;, bNum)&lt;/span&gt;
+    &lt;span style=&#34;color:#75715e&#34;&gt;#print()&lt;/span&gt;
+
+            &lt;span style=&#34;color:#75715e&#34;&gt;#pad key to 16 bytes (128bit)&lt;/span&gt;
+            key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
+            i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+            padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
+            &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
+                key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
+                i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+            key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
+            key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+
+            iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After initializing AES&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;            cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;we can try to decrypt the flag.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;            cleartext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(output)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As we know the beginning of the flag, we can filter the output:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; cleartext[:&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;uiuctf{&amp;#39;&lt;/span&gt;:
+                &lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(cleartext)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;When we now execute the script, we will see the correct flag can be decrypted with different tuples and even multiple times per tuple:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[13, 19]
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
 [7, 17]
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
 [3, 31]
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
 [13, 19]
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
 [17, 23]
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
 [2, 29]
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
-b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
+b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;This has multiple reasons:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;We can redistribute the prime factors of &lt;code&gt;a*b&lt;/code&gt; nearly arbitrary between &lt;code&gt;a&lt;/code&gt; and &lt;code&gt;b&lt;/code&gt;.&lt;/li&gt;
@@ -420,45 +493,45 @@ b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
 &lt;li&gt;Iterate over the interval &lt;code&gt;[1, p-1]&lt;/code&gt; and try each for &lt;code&gt;k&lt;/code&gt;.&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;With this adjustments, we get the following script:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Cipher &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; AES
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# find greatest module&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;gpList &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [ [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;23&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;29&lt;/span&gt;] ]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;mod &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; g, p &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; gpList:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; p &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; mod:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        mod &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; p
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# open encrypted flag&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;output.txt&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;r&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    output &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read())
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# iterate over all possible keys&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, mod):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(i)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;#pad key to 16 bytes (128bit)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# initialize AES&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# decrypt flag&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    cleartext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(output)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# check if cleartext is flag and print flag&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; cleartext[:&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;uiuctf{&amp;#39;&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        print(cleartext)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we get the flag only once.&lt;/p&gt;
-&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;b&amp;#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&amp;#39;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Cipher &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; AES
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# find greatest module&lt;/span&gt;
+gpList &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [ [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;31&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;13&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;19&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;23&lt;/span&gt;], [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;29&lt;/span&gt;] ]
+mod &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; g, p &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; gpList:
+    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; p &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; mod:
+        mod &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; p
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# open encrypted flag&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;output.txt&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;r&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+    output &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytearray&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;fromhex(f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read())
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# iterate over all possible keys&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, mod):
+    k &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; str(i)
+
+    &lt;span style=&#34;color:#75715e&#34;&gt;#pad key to 16 bytes (128bit)&lt;/span&gt;
+    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
+    i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+    padding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;uiuctf2021uiuctf2021&amp;#34;&lt;/span&gt;
+    &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; len(key) &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; len(k)):
+        key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; padding[i]
+        i &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k
+    key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(key, encoding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+
+    &lt;span style=&#34;color:#75715e&#34;&gt;# initialize AES&lt;/span&gt;
+    iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bytes(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;kono DIO daaaaaa&amp;#34;&lt;/span&gt;, encoding &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;ascii&amp;#39;&lt;/span&gt;)
+    cipher &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CFB, iv)
+
+    &lt;span style=&#34;color:#75715e&#34;&gt;# decrypt flag&lt;/span&gt;
+    cleartext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cipher&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(output)
+
+    &lt;span style=&#34;color:#75715e&#34;&gt;# check if cleartext is flag and print flag&lt;/span&gt;
+    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; cleartext[:&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;uiuctf{&amp;#39;&lt;/span&gt;:
+        &lt;span style=&#34;color:#66d9ef&#34;&gt;print&lt;/span&gt;(cleartext)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we get the flag only once.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;b&#39;uiuctf{omae_ha_mou_shindeiru_b9e5f9}\n&#39;
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Due to the small numbers the time difference between both scripts is negligible (0.90s vs. 0.83s).&lt;/p&gt;
 </content>
     </item>
