@@ -306,7 +306,7 @@ file.0xa08ce34c31c0.0xa08ce34fb1b0.DataSectionObject.TeaParty.exe.dat:  PE32 exe
 file.0xa08ce38c74b0.0xa08ce2ebde50.DataSectionObject.TeaParty.sys.dat:  PE32+ executable (native) x86-64, for MS Windows
 file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ executable (native) x86-64, for MS Windows
 </code></pre><p>So let&rsquo;s rename the <code>dat</code>s to their original filenames and fire up <a href="https://github.com/icsharpcode/ILSpy">ILSpy</a> and load <code>TeaParty.exe</code></p>
-<p><img src="/img/intentctf22-forensic-tea-party/image-20221217193851517.png" alt="image-20221217193851517"></p>
+<p><img src="/img/intent22-forensic-tea-party/image-20221217193851517.png" alt="image-20221217193851517"></p>
 <p>We can reverse the application code flow out of the <code>TeaParty</code> class (excerpt - missing code is <em>kernel32.dll</em>, <em>user32.dll</em>, or <em>advapi32.dll</em> windows API)</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-csharp" data-lang="csharp"><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">string</span> CalculateMd5HexDigest(<span style="color:#66d9ef">string</span> data)
 </span></span><span style="display:flex;"><span>{
@@ -492,7 +492,7 @@ file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ ex
 </span></span><span style="display:flex;"><span>	}
 </span></span><span style="display:flex;"><span>}
 </span></span></code></pre></div><p>We also can dump the XOR encrypted <code>TeaParty.sys</code>, although we don&rsquo;t really need to as we already have extracted the unencrypted version out of the memory dump.</p>
-<p><img src="/img/intentctf22-forensic-tea-party/image-20221226215851318.png" alt="image-20221226215851318"></p>
+<p><img src="/img/intent22-forensic-tea-party/image-20221226215851318.png" alt="image-20221226215851318"></p>
 <p>So, we can infer:</p>
 <ol>
 <li>On Startup, <code>TeaParty.sys</code> is decoded (XOR with 0xAA) and copied to <code>C:\Program Files\AliceInWonderlandTeaParty\TeaParty.sys</code></li>
@@ -511,7 +511,7 @@ file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ ex
 </li>
 </ol>
 <p>When running <code>TeaParty.exe</code>we are greeted with a GIF image from Disney&rsquo;s Alice in Wonderland:</p>
-<p><img src="/img/intentctf22-forensic-tea-party/image-20221226223154580.png" alt="image-20221226223154580"></p>
+<p><img src="/img/intent22-forensic-tea-party/image-20221226223154580.png" alt="image-20221226223154580"></p>
 <p>So, the interesting bits - Hashes and flag - are hidden in the <em>TeaParty.sys</em> device driver and are queried from the device at runtime.</p>
 <h2 id="drowning-in-my-own-tears-retrieve-the-flag-without-reverse-engineering-the-driver">Drowning In My Own Tears: Retrieve the Flag Without Reverse Engineering the Driver?<a href="#drowning-in-my-own-tears-retrieve-the-flag-without-reverse-engineering-the-driver" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
 <p>Being a bit intimidated by the outlook of having to reverse a windows driver and keeping the hint about <em>rainbow tables</em> in mind, I thought about staying in my comfort zone and just reversing one of the 2 hashes supplied by the <code>GetHash1</code>and <code>GetHash2</code> functions.</p>
@@ -532,7 +532,7 @@ file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ ex
 acd76752011afb91f5ca6f707066b350
 f5c18c5029e778b383c1ec34f156cf6b
 </code></pre><p>Let&rsquo;s feed those hashes into <a href="https://crackstation.net">crackstation.net</a> And we are lucky indeed:</p>
-<p><img src="/img/intentctf22-forensic-tea-party/image-20221227032857926.png" alt="image-20221227032857926"></p>
+<p><img src="/img/intent22-forensic-tea-party/image-20221227032857926.png" alt="image-20221227032857926"></p>
 <p>This is in line with the challenge lore and should give us the flag! Let&rsquo;s start <em>TeaParty.exe</em> and type <em>whothefuckisalice</em>!</p>
 <p><strong>And then&hellip;</strong>
 <strong>&hellip;nothing happens?!</strong></p>
@@ -545,7 +545,7 @@ f5c18c5029e778b383c1ec34f156cf6b
 <li>Probably has a lot of more advanced functionality I don&rsquo;t event basically understand</li>
 </ul>
 <p>This comes with the drawbacks, that it doesn&rsquo;t have a Linux native version available and isn&rsquo;t actively developed and maintained anymore since December 2020, which keeps me from using it instead of <a href="https://github.com/icsharpcode/ILSpy">ILSpy</a> by default.</p>
-<p><img src="/img/intentctf22-forensic-tea-party/image-20221227034440569.png" alt="image-20221227034440569"></p>
+<p><img src="/img/intent22-forensic-tea-party/image-20221227034440569.png" alt="image-20221227034440569"></p>
 <p>As you see, the <code>Form1_Load</code> function is already rewritten to concentrate on the absolutely necessary</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-csharp" data-lang="csharp"><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> Form1_Load(<span style="color:#66d9ef">object</span> sender, EventArgs e)
 </span></span><span style="display:flex;"><span>{
@@ -893,10 +893,10 @@ Last Write Time	Hive Offset	Type	Key	Name	Data	Volatile
 <p>In a <em>Command Prompt (cmd.exe)</em>, started with System privileges (Right click, run as administrator), execute:</p>
 <pre tabindex="0"><code>bcdedit -set TESTSIGNING OFF
 </code></pre><p>and restart Windows. After a reboot, there should be the following <em>Test Mode</em> watermark visible.</p>
-<p><img src="/img/intentctf22-forensic-tea-party/image-20221227023833349.png" alt="image-20221227023833349"></p>
+<p><img src="/img/intent22-forensic-tea-party/image-20221227023833349.png" alt="image-20221227023833349"></p>
 <p>Make sure <em>Virus &amp;  Threat Protection</em> is still off and run <em>TeaParty.exe</em>.</p>
 <p><strong>Et Voila:</strong> When we type <em>whothefuckisalice</em>, the <strong>flag</strong> appears!</p>
-<p>c<img src="/img/intentctf22-forensic-tea-party/image-20221227024123467.png" alt="image-20221227024123467"></p>
+<p>c<img src="/img/intent22-forensic-tea-party/image-20221227024123467.png" alt="image-20221227024123467"></p>
 <p><strong>And we even could get it without fully reversing <em>TeaParty.sys</em>, inferring the password from the process memory and modifying the .Net assembly like we tried above. Neat!</strong></p>
 <h2 id="leaving-wonderland-summary">Leaving Wonderland: Summary<a href="#leaving-wonderland-summary" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
 <p>I really liked this challenge as it needed quite a broad skill set to obtain the flag and introduced a couple of techniques and tools one could use:</p>
