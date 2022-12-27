@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+    <title>INTENT CTF 2022 - Forensic Tea Party :: CyberTaskForce Zero</title>
+  
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Analyze the memory dump to find any suspicious processes and find the flag." />
+<meta name="keywords" content=", " />
+<meta name="robots" content="noodp" />
+<link rel="canonical" href="/posts/intentctf22-forensic-tea-party/" />
+
+
+
+
+<link rel="stylesheet" href="/assets/style.css">
+
+
+
+
+
+
+<link rel="apple-touch-icon" href="/img/apple-touch-icon-192x192.png">
+
+  <link rel="shortcut icon" href="/img/favicon/orange.png">
+
+
+
+<meta name="twitter:card" content="summary" />
+
+
+
+<meta property="og:locale" content="en" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="INTENT CTF 2022 - Forensic Tea Party">
+<meta property="og:description" content="Analyze the memory dump to find any suspicious processes and find the flag." />
+<meta property="og:url" content="/posts/intentctf22-forensic-tea-party/" />
+<meta property="og:site_name" content="CyberTaskForce Zero" />
+
+  <meta property="og:image" content="/">
+
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+
+
+  <meta property="article:published_time" content="2022-12-27 19:10:24 &#43;0100 CET" />
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+<body class="orange">
+
+
+<div class="container center headings--one-size">
+
+  <header class="header">
+  <div class="header__inner">
+    <div class="header__logo">
+      <a href="/">
+  <div class="logo">
+    CTF0
+  </div>
+</a>
+
+    </div>
+    
+      <div class="menu-trigger">menu</div>
+    
+  </div>
+  
+    <nav class="menu">
+  <ul class="menu__inner menu__inner--desktop">
+    
+      
+        
+          <li><a href="/about">About</a></li>
+        
+      
+      
+    
+
+    
+  </ul>
+
+  <ul class="menu__inner menu__inner--mobile">
+    
+      
+        <li><a href="/about">About</a></li>
+      
+    
+    
+  </ul>
+</nav>
+
+  
+</header>
+
+
+  <div class="content">
+    
+<div class="post">
+  <h1 class="post-title">
+    <a href="/posts/intentctf22-forensic-tea-party/">INTENT CTF 2022 - Forensic Tea Party</a></h1>
+  <div class="post-meta">
+    
+      <span class="post-date">
+        2022-12-27
+        
+      </span>
+    
+    
+      <span class="post-author">:: koalajoe</span>
+    
+    
+  </div>
+
+  
+  <span class="post-tags">
+    
+    #<a href="/tags/forensic/">forensic</a>&nbsp;
+    
+    #<a href="/tags/reversing/">reversing</a>&nbsp;
+    
+  </span>
+  
+  
+
+
+  
+
+  <div class="post-content"><div>
+        <p>The following challenge was part of the <em>Alice in Wonderland</em> themed INTENT CTF 2022 and was tagged as <em>Forensics</em> and <em>Reverse Engineering</em> challenge. This was the first time I did memory dump analysis, and really enjoyed the different &ldquo;layers&rdquo; to uncover and reverse. So please bear with my forced puns and references to <em>Alice in Wonderland</em> and read on&hellip;</p>
+<h2 id="challenge-description">Challenge Description<a href="#challenge-description" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Analyze the memory dump to find any suspicious processes and find the flag.</p>
+<ul>
+<li><em>File: Windows10x64_AliceInWonderland-b4365e16.vmem</em> (~1GB)</li>
+<li><em>Hint: md5 hashes can be cracked by using rainbow tables <a href="https://crackstation.net/">https://crackstation.net/</a></em></li>
+<li><em>Author: <a href="https://twitter.com/rotemsalinas">@rotemsalinas</a></em></li>
+</ul>
+<h2 id="crawling-into-the-rabbit-hole-first-memory-analysis-and-data-extraction">Crawling Into The Rabbit Hole: First Memory Analysis and Data Extraction<a href="#crawling-into-the-rabbit-hole-first-memory-analysis-and-data-extraction" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>As the <code>file</code> utility does not recognize any file structure in our VMEM file, we found through online research that a <code>vmem</code> file is a raw dump of virtual machine memory. It can be a page file or (most likely in our case) a <a href="https://knowledge.broadcom.com/external/article/181598/how-to-convert-a-vmware-virtual-machine.html">full memory dump converted from a VM snapshot</a>.</p>
+<p>Analyzing memory snapshots can be done with <a href="https://www.volatilityfoundation.org">volatility</a>. It comes in a <em>2.x</em> and <em>3.x</em> branch, the latter a <em>python3</em> rewrite which hasn&rsquo;t achieved feature parity yet. I chose the <em>3.x</em> branch as I didn&rsquo;t want to mess with <em>python2</em>, but in retrospect I could have used a precompiled binary version of both branches.</p>
+<p>Let&rsquo;s verify what we have in that memory dump.</p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.info
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                                                                                              
+Variable	Value
+
+Kernel Base	0xf80378e83000
+DTB	0x1ab000
+Symbols	file:///usr/lib/python3.10/site-packages/volatility3/symbols/windows/ntkrnlmp.pdb/CB2D765201C348A8B9FB66294E6614F7-1.json.xz
+Is64Bit	True
+IsPAE	False
+layer_name	0 WindowsIntel32e
+memory_layer	1 FileLayer
+KdVersionBlock	0xf803791d8720
+Major/Minor	15.16299
+MachineType	34404
+KeNumberProcessors	2
+SystemTime	2022-09-02 22:32:31
+NtSystemRoot	C:\Windows
+NtProductType	NtProductWinNt
+NtMajorVersion	10
+NtMinorVersion	0
+PE MajorOperatingSystemVersion	10
+PE MinorOperatingSystemVersion	0
+PE Machine	34404
+PE TimeDateStamp	Tue Apr  2 04:29:15 2019
+</code></pre><p>OK, as expected we have a Windows 10 64-bit machine. Let&rsquo;s have a look at the processes that were running during snapshot.</p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.pslist
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+PID	PPID	ImageFileName	Offset(V)	Threads	Handles	SessionId	Wow64	CreateTime	ExitTime	File output
+
+4	0	System	0xa08ce048c440	123	-	N/A	False	2022-09-02 22:01:11.000000 	N/A	Disabled
+280	4	smss.exe	0xa08ce1772040	3	-	N/A	False	2022-09-02 22:01:11.000000 	N/A	Disabled
+404	396	csrss.exe	0xa08ce1bb2580	11	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+476	280	smss.exe	0xa08ce1bb4580	0	-	1	False	2022-09-02 22:01:12.000000 	2022-09-02 22:01:12.000000 	Disabled
+484	396	wininit.exe	0xa08ce1fad080	5	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+492	476	csrss.exe	0xa08ce1fbb080	12	-	1	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+576	476	winlogon.exe	0xa08ce1ae6480	6	-	1	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+616	484	services.exe	0xa08ce204a080	11	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+632	484	lsass.exe	0xa08ce2051080	14	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+740	616	svchost.exe	0xa08ce1a0e580	32	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+752	484	fontdrvhost.ex	0xa08ce1a44080	5	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+760	576	fontdrvhost.ex	0xa08ce1a46080	5	-	1	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+864	616	svchost.exe	0xa08ce1abc580	15	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+960	576	dwm.exe	0xa08ce20d4080	11	-	1	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1020	616	svchost.exe	0xa08ce20f2340	74	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+432	616	svchost.exe	0xa08ce2119280	27	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+396	616	svchost.exe	0xa08ce211f580	44	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+856	616	svchost.exe	0xa08ce2148580	20	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1092	616	svchost.exe	0xa08ce218a580	28	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1328	616	svchost.exe	0xa08ce21e3580	33	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1356	4	MemCompression	0xa08ce23e9280	18	-	N/A	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1524	616	svchost.exe	0xa08ce048f340	11	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1572	616	svchost.exe	0xa08ce04bc580	5	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1580	616	svchost.exe	0xa08ce04b4580	15	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1672	616	svchost.exe	0xa08ce04f9580	7	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1700	616	spoolsv.exe	0xa08ce04fb580	13	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1936	616	svchost.exe	0xa08ce1d28580	12	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+1980	616	SecurityHealth	0xa08ce1d4e580	11	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2004	616	vmtoolsd.exe	0xa08ce1d59580	13	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2012	616	VGAuthService.	0xa08ce1d57580	4	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2028	616	vm3dservice.ex	0xa08ce1d62580	5	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+1340	616	MsMpEng.exe	0xa08ce1d7d580	34	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2088	2028	vm3dservice.ex	0xa08ce1d94580	4	-	1	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2668	616	dllhost.exe	0xa08ce25de080	14	-	0	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2788	740	WmiPrvSE.exe	0xa08ce26af580	15	-	0	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2972	1020	sihost.exe	0xa08ce274b580	18	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2984	616	svchost.exe	0xa08ce273b580	24	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+3052	1020	taskhostw.exe	0xa08ce275b580	9	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2392	856	ctfmon.exe	0xa08ce27de580	9	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2460	576	userinit.exe	0xa08ce284b340	0	-	1	False	2022-09-02 22:01:15.000000 	2022-09-02 22:01:37.000000 	Disabled
+2700	2460	explorer.exe	0xa08ce2853580	77	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+3344	616	SearchIndexer.	0xa08ce28f3300	16	-	0	False	2022-09-02 22:01:16.000000 	N/A	Disabled
+3732	740	ShellExperienc	0xa08ce2a59080	28	-	1	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+3928	616	msdtc.exe	0xa08ce2b61580	12	-	0	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+4028	740	SearchUI.exe	0xa08ce2baf580	30	-	1	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+4088	740	RuntimeBroker.	0xa08ce2ce3080	9	-	1	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+3196	740	RuntimeBroker.	0xa08ce2d60580	20	-	1	False	2022-09-02 22:01:18.000000 	N/A	Disabled
+4660	740	SkypeBackgroun	0xa08ce308b080	4	-	1	False	2022-09-02 22:01:19.000000 	N/A	Disabled
+5104	616	NisSrv.exe	0xa08ce2e82580	11	-	0	False	2022-09-02 22:01:21.000000 	N/A	Disabled
+3232	2700	MSASCuiL.exe	0xa08ce2db8580	4	-	1	False	2022-09-02 22:01:29.000000 	N/A	Disabled
+5912	2700	vmtoolsd.exe	0xa08ce304e080	8	-	1	False	2022-09-02 22:01:29.000000 	N/A	Disabled
+6100	2700	OneDrive.exe	0xa08ce2eb1080	23	-	1	False	2022-09-02 22:01:31.000000 	N/A	Disabled
+6164	6100	Microsoft.Shar	0xa08ce30c1580	0	-	1	False	2022-09-02 22:01:32.000000 	2022-09-02 22:01:43.000000 	Disabled
+6392	740	WmiPrvSE.exe	0xa08ce34ae580	8	-	0	False	2022-09-02 22:01:34.000000 	N/A	Disabled
+6668	616	svchost.exe	0xa08ce3004580	10	-	0	False	2022-09-02 22:01:39.000000 	N/A	Disabled
+4080	616	sedsvc.exe	0xa08ce2c4e080	4	-	0	False	2022-09-02 22:03:15.000000 	N/A	Disabled
+6616	616	svchost.exe	0xa08ce3515080	19	-	0	False	2022-09-02 22:04:14.000000 	N/A	Disabled
+2816	740	smartscreen.ex	0xa08ce2cea080	9	-	1	False	2022-09-02 22:09:43.000000 	N/A	Disabled
+4428	1524	audiodg.exe	0xa08ce30af580	6	-	0	False	2022-09-02 22:09:44.000000 	N/A	Disabled
+4484	2700	TeaParty.exe	0xa08ce26aa080	9	-	1	True	2022-09-02 22:26:18.000000 	N/A	Disabled
+6896	616	svchost.exe	0xa08ce2848580	6	-	0	False	2022-09-02 22:32:02.000000 	N/A	Disabled
+6356	616	sppsvc.exe	0xa08ce38cd580	9	-	0	False	2022-09-02 22:32:03.000000 	N/A	Disabled
+2932	740	SppExtComObj.E	0xa08ce2fef080	7	-	0	False	2022-09-02 22:32:03.000000 	N/A	Disabled
+5092	2932	slui.exe	0xa08ce216d2c0	7	-	0	False	2022-09-02 22:32:08.000000 	N/A	Disabled
+3244	740	slui.exe	0xa08ce2983580	7	-	1	False	2022-09-02 22:32:30.000000 	N/A	Disabled
+2316	2004	cmd.exe	0xa08ce2fb6580	0	-	0	False	2022-09-02 22:32:31.000000 	2022-09-02 22:32:31.000000 	Disabled
+6640	2316	conhost.exe	0xa08ce1ead580	0	-	0	False	2022-09-02 22:32:31.000000 	2022-09-02 22:32:31.000000 	Disabled
+</code></pre><p>Having the <em>Alice in Wonderland</em> theme and the challenge name <em>Forensic Tea Party</em> in mind, the process <code>TeaParty.exe</code> with PID <code>4484</code> looks very suspicious!</p>
+<pre tabindex="0"><code>4484	2700	TeaParty.exe	0xa08ce26aa080	9	-	1	True	2022-09-02 22:26:18.000000 	N/A	Disabled
+</code></pre><p>We can have a look at how the executable was called and where it resided on disk.</p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.cmdline --pid 4484
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+PID	Process	Args
+
+4484	TeaParty.exe	&#34;C:\Users\TheMadHatter\Desktop\TeaParty.exe&#34; 
+</code></pre><p>I did try to locate other processes started from <code>C:\Users\TheMadHatter\Desktop\TeaParty.exe</code> (omitting the <code>pid</code> argument), but there were none. I also wasn&rsquo;t able to dump the open file handles of the process - I don&rsquo;t really know why.</p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.handles --pid 4484
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+PID	Process	Offset	HandleValue	Type	GrantedAccess	Name
+
+
+Volatility was unable to read a requested page:
+Page error 0xf80379570ff0 in layer layer_name (Page Fault at entry 0x5b5e00002064 in page entry)
+
+	* Memory smear during acquisition (try re-acquiring if possible)
+	* An intentionally invalid page lookup (operating system protection)
+	* A bug in the plugin/volatility3 (re-run with -vvv and file a bug)
+
+No further results will be produced
+</code></pre><p>So, let&rsquo;s dump the process memory and file for further analysis</p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.memmap --pid 4484 --dump
+</code></pre><p>we retrieve 323 Megabyte of process memory in file <code>pid.4484.dmp</code></p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.filescan | grep TeaParty
+0xa08ce2930820.0\Users\TheMadHatter\Desktop\TeaParty.exe	216
+0xa08ce30512e0	\Users\TheMadHatter\Desktop\TeaParty.exe	216
+0xa08ce34c31c0	\Users\TheMadHatter\Desktop\TeaParty.exe	216
+0xa08ce38c74b0	\Program Files\AliceInWonderlandTeaParty\TeaParty.sys	216
+</code></pre><p>What a surprise :) <code>TeaParty.sys</code> will also play a part in this write-up later. Let&rsquo;s dump both files.</p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.dumpfiles --virtaddr 0xa08ce34c31c0
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+Cache	FileObject	FileName	Result
+
+DataSectionObject	0xa08ce34c31c0	TeaParty.exe	file.0xa08ce34c31c0.0xa08ce34fb1b0.DataSectionObject.TeaParty.exe.dat
+ImageSectionObject	0xa08ce34c31c0	TeaParty.exe	file.0xa08ce34c31c0.0xa08ce2b1e2e0.ImageSectionObject.TeaParty.exe.img
+
+❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.dumpfiles --virtaddr 0xa08ce38c74b0
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+Cache	FileObject	FileName	Result
+
+DataSectionObject	0xa08ce38c74b0	TeaParty.sys	file.0xa08ce38c74b0.0xa08ce2ebde50.DataSectionObject.TeaParty.sys.dat
+ImageSectionObject	0xa08ce38c74b0	TeaParty.sys	file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img
+</code></pre><p>For each file we get two versions: A <code>dat</code> data file representing the executable data (i.e. the executable file on disk that was started by the process) and am <code>img </code> image file (i.e. the executable file loaded as it is loaded in RAM, with absolute addresses and all segments).</p>
+<h2 id="follow-the-rabbit-examining-and-reversing-the-executable">Follow the Rabbit: Examining and Reversing the Executable<a href="#follow-the-rabbit-examining-and-reversing-the-executable" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>The <code>file</code> command makes me rejoice: It&rsquo;s a .net assembly executable, which means that we can easily obtain and even manipulate the source in a high level language.</p>
+<pre tabindex="0"><code>❯ file file.*
+file.0xa08ce34c31c0.0xa08ce2b1e2e0.ImageSectionObject.TeaParty.exe.img: PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows
+file.0xa08ce34c31c0.0xa08ce34fb1b0.DataSectionObject.TeaParty.exe.dat:  PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows
+file.0xa08ce38c74b0.0xa08ce2ebde50.DataSectionObject.TeaParty.sys.dat:  PE32+ executable (native) x86-64, for MS Windows
+file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ executable (native) x86-64, for MS Windows
+</code></pre><p>So let&rsquo;s rename the <code>dat</code>s to their original filenames and fire up <a href="https://github.com/icsharpcode/ILSpy">ILSpy</a> and load <code>TeaParty.exe</code></p>
+<p><img src="/img/intentctf22-forensic-tea-party/image-20221217193851517.png" alt="image-20221217193851517"></p>
+<p>We can reverse the application code flow out of the <code>TeaParty</code> class (excerpt - missing code is <em>kernel32.dll</em>, <em>user32.dll</em>, or <em>advapi32.dll</em> windows API)</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-csharp" data-lang="csharp"><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">string</span> CalculateMd5HexDigest(<span style="color:#66d9ef">string</span> data)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">using</span> MD5 mD = MD5.Create();
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> BitConverter.ToString(mD.ComputeHash(Encoding.ASCII.GetBytes(data))).Replace(<span style="color:#e6db74">&#34;-&#34;</span>, <span style="color:#66d9ef">string</span>.Empty).ToLower();
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">string</span> GetHash1()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	IntPtr intPtr = CreateFileA(<span style="color:#e6db74">&#34;\\\\.\\TeaParty&#34;</span>, <span style="color:#ae81ff">1073741824</span>u, <span style="color:#ae81ff">2</span>u, IntPtr.Zero, <span style="color:#ae81ff">3</span>u, <span style="color:#ae81ff">0</span>u, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	IntPtr intPtr2 = Marshal.AllocHGlobal(<span style="color:#ae81ff">32</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">int</span> lpBytesReturned = <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">bool</span> flag = DeviceIoControl(intPtr, <span style="color:#ae81ff">2236424</span>u, IntPtr.Zero, <span style="color:#ae81ff">0</span>u, intPtr2, <span style="color:#ae81ff">32</span>u, <span style="color:#66d9ef">out</span> lpBytesReturned, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">byte</span>[] array = <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">byte</span>[<span style="color:#ae81ff">32</span>];
+</span></span><span style="display:flex;"><span>	Marshal.Copy(intPtr2, array, <span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">32</span>);
+</span></span><span style="display:flex;"><span>	Marshal.FreeHGlobal(intPtr2);
+</span></span><span style="display:flex;"><span>	CloseHandle(intPtr);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> Encoding.ASCII.GetString(array);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">bool</span> CheckDebugging()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (Environment.ProcessorCount &lt; <span style="color:#ae81ff">2</span>)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (IsDebuggerPresent() || Debugger.IsAttached)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">string</span> GetHash2()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (CheckDebugging())
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		Environment.FailFast(<span style="color:#e6db74">&#34;Suspecting Anti-Analysis Environment&#34;</span>);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	IntPtr intPtr = CreateFileA(<span style="color:#e6db74">&#34;\\\\.\\TeaParty&#34;</span>, <span style="color:#ae81ff">1073741824</span>u, <span style="color:#ae81ff">2</span>u, IntPtr.Zero, <span style="color:#ae81ff">3</span>u, <span style="color:#ae81ff">0</span>u, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	IntPtr intPtr2 = Marshal.AllocHGlobal(<span style="color:#ae81ff">32</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">int</span> lpBytesReturned = <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">bool</span> flag = DeviceIoControl(intPtr, <span style="color:#ae81ff">2236428</span>u, IntPtr.Zero, <span style="color:#ae81ff">0</span>u, intPtr2, <span style="color:#ae81ff">32</span>u, <span style="color:#66d9ef">out</span> lpBytesReturned, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">byte</span>[] array = <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">byte</span>[<span style="color:#ae81ff">32</span>];
+</span></span><span style="display:flex;"><span>	Marshal.Copy(intPtr2, array, <span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">32</span>);
+</span></span><span style="display:flex;"><span>	Marshal.FreeHGlobal(intPtr2);
+</span></span><span style="display:flex;"><span>	CloseHandle(intPtr);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> Encoding.ASCII.GetString(array);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">string</span> GetFlag(<span style="color:#66d9ef">string</span> passcode)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	IntPtr intPtr = CreateFileA(<span style="color:#e6db74">&#34;\\\\.\\TeaParty&#34;</span>, <span style="color:#ae81ff">1073741824</span>u, <span style="color:#ae81ff">2</span>u, IntPtr.Zero, <span style="color:#ae81ff">3</span>u, <span style="color:#ae81ff">0</span>u, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	IntPtr intPtr2 = Marshal.AllocHGlobal(<span style="color:#ae81ff">512</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">int</span> lpBytesReturned = <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>	IntPtr intPtr3 = Marshal.AllocHGlobal(passcode.Length + <span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>	Marshal.Copy(Encoding.ASCII.GetBytes(passcode + <span style="color:#e6db74">&#34;\0&#34;</span>), <span style="color:#ae81ff">0</span>, intPtr3, passcode.Length + <span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">bool</span> flag = DeviceIoControl(intPtr, <span style="color:#ae81ff">2236416</span>u, intPtr3, (<span style="color:#66d9ef">uint</span>)(passcode.Length + <span style="color:#ae81ff">1</span>), IntPtr.Zero, <span style="color:#ae81ff">0</span>u, <span style="color:#66d9ef">out</span> lpBytesReturned, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	flag = DeviceIoControl(intPtr, <span style="color:#ae81ff">2236420</span>u, IntPtr.Zero, <span style="color:#ae81ff">0</span>u, intPtr2, <span style="color:#ae81ff">512</span>u, <span style="color:#66d9ef">out</span> lpBytesReturned, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">byte</span>[] array = <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">byte</span>[lpBytesReturned];
+</span></span><span style="display:flex;"><span>	Marshal.Copy(intPtr2, array, <span style="color:#ae81ff">0</span>, lpBytesReturned);
+</span></span><span style="display:flex;"><span>	MessageBox.Show(Encoding.ASCII.GetString(array));
+</span></span><span style="display:flex;"><span>	Marshal.FreeHGlobal(intPtr2);
+</span></span><span style="display:flex;"><span>	Marshal.FreeHGlobal(intPtr3);
+</span></span><span style="display:flex;"><span>	CloseHandle(intPtr);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> Encoding.ASCII.GetString(array);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">int</span> passcodeLength = <span style="color:#ae81ff">17</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> List&lt;<span style="color:#66d9ef">string</span>&gt; buffers = <span style="color:#66d9ef">new</span> List&lt;<span style="color:#66d9ef">string</span>&gt;();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">delegate</span> IntPtr HookProc(<span style="color:#66d9ef">int</span> nCode, IntPtr wParam, IntPtr lParam)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> IntPtr HookCallback(<span style="color:#66d9ef">int</span> nCode, IntPtr wParam, IntPtr lParam)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (nCode &gt;= <span style="color:#ae81ff">0</span> &amp;&amp; wParam == (IntPtr)<span style="color:#ae81ff">256</span>)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">int</span> num = Marshal.ReadInt32(lParam);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i = <span style="color:#ae81ff">0</span>; i &lt; 
+</span></span><span style="display:flex;"><span>             passcodeLength; i++)
+</span></span><span style="display:flex;"><span>		{
+</span></span><span style="display:flex;"><span>			
+</span></span><span style="display:flex;"><span>            buffers[i] += (<span style="color:#66d9ef">char</span>)num;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (CalculateMd5HexDigest(buffers.Last()) == GetHash1() || CalculateMd5HexDigest(buffers.Last()) == GetHash2())
+</span></span><span style="display:flex;"><span>		{
+</span></span><span style="display:flex;"><span>			UnhookWindowsHookEx(hookId);
+</span></span><span style="display:flex;"><span>			MessageBox.Show(<span style="color:#e6db74">&#34;You Got the FLAG!&#34;</span>);
+</span></span><span style="display:flex;"><span>			GetFlag(buffers.Last().ToLower());
+</span></span><span style="display:flex;"><span>			Application.Exit();
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		buffers.RemoveAt(buffers.Count - <span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>		buffers.Insert(<span style="color:#ae81ff">0</span>, <span style="color:#e6db74">&#34;&#34;</span>);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> CallNextHookEx(hookId, nCode, wParam, lParam);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">bool</span> ResourceExists(<span style="color:#66d9ef">string</span> resourceName)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> Assembly.GetCallingAssembly().GetManifestResourceNames().Contains(resourceName);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">byte</span>[] ReadResource(<span style="color:#66d9ef">string</span> resourceName)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">byte</span>[] array = <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">try</span>
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">using</span> Stream stream = Assembly.GetCallingAssembly().GetManifestResourceStream(resourceName);
+</span></span><span style="display:flex;"><span>		array = <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">byte</span>[(<span style="color:#66d9ef">int</span>)stream.Length];
+</span></span><span style="display:flex;"><span>		stream.Read(array, <span style="color:#ae81ff">0</span>, (<span style="color:#66d9ef">int</span>)stream.Length);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">catch</span> (NullReferenceException ex)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">throw</span> ex;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> array;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">byte</span>[] GetResource(<span style="color:#66d9ef">string</span> resourceName)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	resourceName = Assembly.GetCallingAssembly().GetName().Name + <span style="color:#e6db74">&#34;.&#34;</span> + resourceName;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (ResourceExists(resourceName))
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> ReadResource(resourceName);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">byte</span>[] decodeResource(<span style="color:#66d9ef">byte</span>[] data)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">byte</span>[] array = <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">byte</span>[data.Length];
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i = <span style="color:#ae81ff">0</span>; i &lt; data.Length; i++)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		array[i] = (<span style="color:#66d9ef">byte</span>)(data[i] ^ <span style="color:#ae81ff">0xAA</span>u);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> array;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> InstallDriver(<span style="color:#66d9ef">string</span> driverName, <span style="color:#66d9ef">string</span> driverPath)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	IntPtr intPtr = IntPtr.Zero;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">byte</span>[] resource = GetResource(driverName + <span style="color:#e6db74">&#34;.sys&#34;</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (resource != <span style="color:#66d9ef">null</span>)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		resource = decodeResource(resource);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (!File.Exists(driverPath))
+</span></span><span style="display:flex;"><span>		{
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> (!Directory.Exists(Path.GetDirectoryName(driverPath)))
+</span></span><span style="display:flex;"><span>			{
+</span></span><span style="display:flex;"><span>				Directory.CreateDirectory(Path.GetDirectoryName(driverPath));
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>			File.WriteAllBytes(driverPath, resource);
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	IntPtr intPtr2 = OpenSCManager(<span style="color:#66d9ef">null</span>, <span style="color:#66d9ef">null</span>, <span style="color:#ae81ff">983103</span>u);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (intPtr2 != IntPtr.Zero)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		intPtr = OpenService(intPtr2, driverName, <span style="color:#ae81ff">983551</span>u);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (!(intPtr != IntPtr.Zero))
+</span></span><span style="display:flex;"><span>		{
+</span></span><span style="display:flex;"><span>			intPtr = CreateServiceW(intPtr2, <span style="color:#e6db74">&#34;TeaParty&#34;</span>, <span style="color:#e6db74">&#34;AliceInWonderlandTeaParty&#34;</span>, <span style="color:#ae81ff">983103</span>u, <span style="color:#ae81ff">1</span>u, <span style="color:#ae81ff">3</span>u, <span style="color:#ae81ff">1</span>u, driverPath, <span style="color:#66d9ef">null</span>, IntPtr.Zero, <span style="color:#66d9ef">string</span>.Empty, <span style="color:#66d9ef">null</span>, <span style="color:#66d9ef">string</span>.Empty);
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	StartServiceW(intPtr, <span style="color:#ae81ff">0</span>u, IntPtr.Zero);
+</span></span><span style="display:flex;"><span>	CloseServiceHandle(intPtr);
+</span></span><span style="display:flex;"><span>	CloseServiceHandle(intPtr2);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> HookProc hookProc = HookCallback;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> Form1_Load(<span style="color:#66d9ef">object</span> sender, EventArgs e)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	InstallDriver(<span style="color:#e6db74">&#34;TeaParty&#34;</span>, <span style="color:#e6db74">&#34;C:\\Program Files\\AliceInWonderlandTeaParty\\TeaParty.sys&#34;</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (CheckDebugging())
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		Environment.FailFast(<span style="color:#e6db74">&#34;Suspecting Anti-Analysis Environment&#34;</span>);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	hookId = SetHook(hookProc);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i = <span style="color:#ae81ff">0</span>; i &lt; passcodeLength; i++)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		buffers.Add(<span style="color:#e6db74">&#34;&#34;</span>);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>We also can dump the XOR encrypted <code>TeaParty.sys</code>, although we don&rsquo;t really need to as we already have extracted the unencrypted version out of the memory dump.</p>
+<p><img src="/img/intentctf22-forensic-tea-party/image-20221226215851318.png" alt="image-20221226215851318"></p>
+<p>So, we can infer:</p>
+<ol>
+<li>On Startup, <code>TeaParty.sys</code> is decoded (XOR with 0xAA) and copied to <code>C:\Program Files\AliceInWonderlandTeaParty\TeaParty.sys</code></li>
+<li>As Anti-Debugging measure, it is checked if a Debugger is present or we run on a machine with a single CPU core (this may be targeting VMs?)</li>
+<li>We save the last 17 characters typed in a buffer, the last 16 in another, the last 15 in another&hellip; and so on. Why? I don&rsquo;t really know, only the full one is used.</li>
+<li>We check if the MD5 hash of the last input password is the same as the either the result of <code>GetHash1</code> or <code>GetHash2</code>.
+<ul>
+<li><code>GetHash1</code> runs the <a href="https://learn.microsoft.com/en-us/windows/win32/devio/device-input-and-output-control-ioctl-">IOCtl (Input/Output Control)</a> 2236424 of device driver <code>\\.\TeaParty</code> and returns the result</li>
+<li><code>GetHash2</code> runs the <a href="https://learn.microsoft.com/en-us/windows/win32/devio/device-input-and-output-control-ioctl-">IOCtl (Input/Output Control)</a> 2236428 of device driver <code>\\.\TeaParty</code> and returns the result</li>
+</ul>
+</li>
+<li>If we pass this check, we retrieve a confirmation dialog and another dialog that outputs the flag:
+<ul>
+<li><code>GetFlag</code> runs the <a href="https://learn.microsoft.com/en-us/windows/win32/devio/device-input-and-output-control-ioctl-">IOCtls (Input/Output Control)</a> 2236416 and 2236420 of device driver <code>\\.\TeaParty</code> and returns the result each time. The last result is displayed in a Message Box.</li>
+</ul>
+</li>
+</ol>
+<p>When running <code>TeaParty.exe</code>we are greeted with a GIF image from Disney&rsquo;s Alice in Wonderland:</p>
+<p><img src="/img/intentctf22-forensic-tea-party/image-20221226223154580.png" alt="image-20221226223154580"></p>
+<p>So, the interesting bits - Hashes and flag - are hidden in the <em>TeaParty.sys</em> device driver and are queried from the device at runtime.</p>
+<h2 id="drowning-in-my-own-tears-retrieve-the-flag-without-reverse-engineering-the-driver">Drowning In My Own Tears: Retrieve the Flag Without Reverse Engineering the Driver?<a href="#drowning-in-my-own-tears-retrieve-the-flag-without-reverse-engineering-the-driver" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Being a bit intimidated by the outlook of having to reverse a windows driver and keeping the hint about <em>rainbow tables</em> in mind, I thought about staying in my comfort zone and just reversing one of the 2 hashes supplied by the <code>GetHash1</code>and <code>GetHash2</code> functions.</p>
+<p>If we dumped the memory of a running and unlocked <em>TeaParty.exe</em> we should see the hash in memory, right? It&rsquo;s quite likely these functions not only generate a hex digest of the MD5 checksums, but keep it in memory after the flag is displayed.</p>
+<p>Let&rsquo;s enumerate all strings in our process dump that could be valid MD5 hashes:</p>
+<ul>
+<li>32 characters long</li>
+<li>Only contains lowercase and characters and digits (Note: uppercase characters would be valid hashes but as we compare against a <code>ToLower()</code>ed string we can assume the target hashes are also lowercase).</li>
+</ul>
+<pre tabindex="0"><code>❯ strings -n 32 pid.4484.dmp | grep --color=never -E &#34;^[0-9a-f]{32}$&#34; | sort -u
+142061edd8b57809b8ff617c4556c787
+286954fbe19a4de865789fdf75cca5ea
+33333333333333333333333333330000
+33333333333333333333333333333333
+6675b1f9603ec9e014cdcf6c3be6c860
+85df50e08a81b2e0942b3b323435278f
+9b1f18bc9e5569fb166a22ca6eb337a4
+acd76752011afb91f5ca6f707066b350
+f5c18c5029e778b383c1ec34f156cf6b
+</code></pre><p>Let&rsquo;s feed those hashes into <a href="https://crackstation.net">crackstation.net</a> And we are lucky indeed:</p>
+<p><img src="/img/intentctf22-forensic-tea-party/image-20221227032857926.png" alt="image-20221227032857926"></p>
+<p>This is in line with the challenge lore and should give us the flag! Let&rsquo;s start <em>TeaParty.exe</em> and type <em>whothefuckisalice</em>!</p>
+<p><strong>And then&hellip;</strong>
+<strong>&hellip;nothing happens?!</strong></p>
+<p>This can&rsquo;t be right, this looks so much like the correct solution it isn&rsquo;t even funny. So, maybe those <em>Anti-Debugging</em> measures are interfering somehow, even if we have more than a single core available and no debugger attached? Let&rsquo;s modify the .Net assembly to not waste time with key scanning and hash comparison.</p>
+<p><a href="https://github.com/dnSpy/dnSpy">dnSpy</a> is <a href="https://github.com/icsharpcode/ILSpy">ILSpy</a> on steroids providing the reversing capabilities, but also:</p>
+<ul>
+<li>Allows modification of the reversed code and rewriting the assembly (Isn&rsquo;t that cool!?)</li>
+<li>Allows attachment of a debugger to .Net executables, providing Visual Studio like debugging experience</li>
+<li>Looks sleek and features a dark mode color scheme</li>
+<li>Probably has a lot of more advanced functionality I don&rsquo;t event basically understand</li>
+</ul>
+<p>This comes with the drawbacks, that it doesn&rsquo;t have a Linux native version available and isn&rsquo;t actively developed and maintained anymore since December 2020, which keeps me from using it instead of <a href="https://github.com/icsharpcode/ILSpy">ILSpy</a> by default.</p>
+<p><img src="/img/intentctf22-forensic-tea-party/image-20221227034440569.png" alt="image-20221227034440569"></p>
+<p>As you see, the <code>Form1_Load</code> function is already rewritten to concentrate on the absolutely necessary</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-csharp" data-lang="csharp"><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> Form1_Load(<span style="color:#66d9ef">object</span> sender, EventArgs e)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	TeaParty.InstallDriver(<span style="color:#e6db74">&#34;TeaParty&#34;</span>, <span style="color:#e6db74">&#34;C:\\Program Files\\AliceInWonderlandTeaParty\\TeaParty.sys&#34;</span>);
+</span></span><span style="display:flex;"><span>	TeaParty.GetFlag(<span style="color:#e6db74">&#34;whothefuckisalice&#34;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>And that changes exactly nothing.</strong> Still no flag.</p>
+<p>Well, time to leave the comfort zone and get our hands dirty on the <em>TeaParty.sys</em> device driver.</p>
+<h2 id="were-all-mad-here-whats-a-device-driver-anyway">We&rsquo;re All Mad Here: What&rsquo;s a device driver anyway?<a href="#were-all-mad-here-whats-a-device-driver-anyway" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>To analyze the <em>TeaParty.sys</em> in Ghidra, it is really helpful to import the <em><a href="https://github.com/0x6d696368/ghidra-data/blob/master/typeinfo/ntddk_64.gdt">ntddk64</a></em> symbols, as it will allow to use the needed Windows API types when recreating structs and types. I&rsquo;ll spare you the detailed reversing process and just describe the recreated code path.</p>
+<p>We start at the <code>entry</code> function, which receives a pointer to a <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_driver_object">DRIVER_OBJECT</a> struct and forwards it to another method I named <code>driverEntry</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">entry</span>(PDRIVER_OBJECT driverObject)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">FUN_fffff80944e0502c</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">driverEntry</span>(driverObject);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The <code>driverEntry</code> function initializes an IO Device at <code>\Device\TeaParty</code> and <code>\DosDevice\TeaParty</code> (I think for legacy reasons). It then initializes the IRP Function Table, which maps functions to IRP operations. These are mostly defined to an almost empty NOP function, supposedly out of necessity. But the IRP function for <em>Device Control</em> is defined to a rich function used to dispatch the IO Controls provided by the calls in our .Net program. There is also a short unload routine which does pretty much the expected, unloading the defined device.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>undefined8 <span style="color:#a6e22e">driverEntry</span>(PDRIVER_OBJECT driverObject)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  _UNICODE_STRING deviceName;
+</span></span><span style="display:flex;"><span>  _UNICODE_STRING deviceAlias;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">DbgPrint</span>(<span style="color:#e6db74">&#34;Hello World!</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">RtlInitUnicodeString</span>(<span style="color:#f92672">&amp;</span>deviceName,<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">Device</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">TeaParty&#34;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">RtlInitUnicodeString</span>(<span style="color:#f92672">&amp;</span>deviceAlias,<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">DosDevices</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">TeaParty&#34;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">IoCreateDevice</span>(driverObject,<span style="color:#ae81ff">0</span>,<span style="color:#f92672">&amp;</span>deviceName,FILE_DEVICE_UNKNOWN,<span style="color:#ae81ff">0</span>,<span style="color:#e6db74">&#39;\0&#39;</span>,<span style="color:#f92672">&amp;</span>DEVICE_OBJECT);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">IoCreateSymbolicLink</span>(<span style="color:#f92672">&amp;</span>deviceAlias,<span style="color:#f92672">&amp;</span>deviceName);
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* IRP_MJ_CREATE */</span>
+</span></span><span style="display:flex;"><span>  driverObject<span style="color:#f92672">-&gt;</span>MajorFunction[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">=</span> driverNOP;
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* IRP_MJ_CLOSE */</span>
+</span></span><span style="display:flex;"><span>  driverObject<span style="color:#f92672">-&gt;</span>MajorFunction[IRP_MJ_CLOSE] <span style="color:#f92672">=</span> driverNOP;
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* IRP_MJ_READ */</span>
+</span></span><span style="display:flex;"><span>  driverObject<span style="color:#f92672">-&gt;</span>MajorFunction[IRP_MJ_READ] <span style="color:#f92672">=</span> driverNOP;
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* IRP_MJ_WRITE */</span>
+</span></span><span style="display:flex;"><span>  driverObject<span style="color:#f92672">-&gt;</span>MajorFunction[IRP_MJ_WRITE] <span style="color:#f92672">=</span> driverNOP;
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* IRP_MJ_DEVICE_CONTROL */</span>
+</span></span><span style="display:flex;"><span>  driverObject<span style="color:#f92672">-&gt;</span>MajorFunction[IRP_MJ_DEVICE_CONTROL] <span style="color:#f92672">=</span> driverDispatch;
+</span></span><span style="display:flex;"><span>  driverObject<span style="color:#f92672">-&gt;</span>DriverUnload <span style="color:#f92672">=</span> driverUnload;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The <code>driverDispatch</code> function is where the magic happens. Let&rsquo;s have a look and analyze it.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>] <span style="color:#a6e22e">decrypt_aes</span>(PUCHAR param_1,ULONG param_2)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  NTSTATUS NVar1;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>pbKeyObject) [<span style="color:#ae81ff">16</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>pbIV) [<span style="color:#ae81ff">16</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>pbOutput) [<span style="color:#ae81ff">16</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>pauVar2) [<span style="color:#ae81ff">16</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>pauVar3) [<span style="color:#ae81ff">16</span>];
+</span></span><span style="display:flex;"><span>  uint local_res18 [<span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>  uint local_res20 [<span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>  uint local_58;
+</span></span><span style="display:flex;"><span>  ULONG local_54;
+</span></span><span style="display:flex;"><span>  BCRYPT_HANDLE local_50;
+</span></span><span style="display:flex;"><span>  BCRYPT_KEY_HANDLE local_48 [<span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  pbIV <span style="color:#f92672">=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>  local_50 <span style="color:#f92672">=</span> (BCRYPT_HANDLE)<span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>  local_48[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">=</span> (BCRYPT_KEY_HANDLE)<span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>  local_res20[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>  local_54 <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>  local_58 <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>  local_res18[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>  pauVar3 <span style="color:#f92672">=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>  pauVar2 <span style="color:#f92672">=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>  NVar1 <span style="color:#f92672">=</span> <span style="color:#a6e22e">BCryptOpenAlgorithmProvider</span>(<span style="color:#f92672">&amp;</span>local_50,<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;AES&#34;</span>,(LPCWSTR)<span style="color:#ae81ff">0x0</span>,<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  pbOutput <span style="color:#f92672">=</span> pbIV;
+</span></span><span style="display:flex;"><span>  pbKeyObject <span style="color:#f92672">=</span> pbIV;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">&lt;</span> NVar1) {
+</span></span><span style="display:flex;"><span>    NVar1 <span style="color:#f92672">=</span> <span style="color:#a6e22e">BCryptGetProperty</span>(local_50,<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;ObjectLength&#34;</span>,(PUCHAR)<span style="color:#f92672">&amp;</span>local_58,<span style="color:#ae81ff">8</span>,<span style="color:#f92672">&amp;</span>local_54,<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    pbIV <span style="color:#f92672">=</span> pauVar2;
+</span></span><span style="display:flex;"><span>    pbOutput <span style="color:#f92672">=</span> pauVar3;
+</span></span><span style="display:flex;"><span>    pbKeyObject <span style="color:#f92672">=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">&lt;</span> NVar1) {
+</span></span><span style="display:flex;"><span>      pbKeyObject <span style="color:#f92672">=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">ExAllocatePoolWithTag</span>(PagedPool,(ulonglong)local_58,<span style="color:#ae81ff">0xaabbccdd</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (pbKeyObject <span style="color:#f92672">!=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>) {
+</span></span><span style="display:flex;"><span>        NVar1 <span style="color:#f92672">=</span> <span style="color:#a6e22e">BCryptGetProperty</span>(local_50,<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;BlockLength&#34;</span>,(PUCHAR)local_res18,<span style="color:#ae81ff">8</span>,<span style="color:#f92672">&amp;</span>local_54,<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> ((<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">&lt;</span> NVar1) <span style="color:#f92672">&amp;&amp;</span> (local_res18[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0x11</span>)) {
+</span></span><span style="display:flex;"><span>          pbIV <span style="color:#f92672">=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])
+</span></span><span style="display:flex;"><span>                 <span style="color:#a6e22e">ExAllocatePoolWithTag</span>(PagedPool,(ulonglong)local_res18[<span style="color:#ae81ff">0</span>],<span style="color:#ae81ff">0xaabbccdd</span>);
+</span></span><span style="display:flex;"><span>          <span style="color:#66d9ef">if</span> (pbIV <span style="color:#f92672">!=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>) {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">memmove</span>(pbIV,<span style="color:#f92672">&amp;</span>AES_IV,(ulonglong)local_res18[<span style="color:#ae81ff">0</span>]);
+</span></span><span style="display:flex;"><span>            NVar1 <span style="color:#f92672">=</span> <span style="color:#a6e22e">BCryptSetProperty</span>(local_50,<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;ChainingMode&#34;</span>,(PUCHAR)<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;ChainingModeCBC&#34;</span>,<span style="color:#ae81ff">0x20</span>,<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> (<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">&lt;</span> NVar1) {
+</span></span><span style="display:flex;"><span>              NVar1 <span style="color:#f92672">=</span> <span style="color:#a6e22e">BCryptGenerateSymmetricKey</span>
+</span></span><span style="display:flex;"><span>                                (local_50,local_48,(PUCHAR)pbKeyObject,local_58,<span style="color:#f92672">&amp;</span>AES_KEY,<span style="color:#ae81ff">0x20</span>,<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>              <span style="color:#66d9ef">if</span> (<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">&lt;</span> NVar1) {
+</span></span><span style="display:flex;"><span>                NVar1 <span style="color:#f92672">=</span> <span style="color:#a6e22e">BCryptDecrypt</span>(local_48[<span style="color:#ae81ff">0</span>],param_1,param_2,(<span style="color:#66d9ef">void</span> <span style="color:#f92672">*</span>)<span style="color:#ae81ff">0x0</span>,(PUCHAR)pbIV,
+</span></span><span style="display:flex;"><span>                                      local_res18[<span style="color:#ae81ff">0</span>],(PUCHAR)<span style="color:#ae81ff">0x0</span>,<span style="color:#ae81ff">0</span>,local_res20,<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> (<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">&lt;</span> NVar1) {
+</span></span><span style="display:flex;"><span>                  pbOutput <span style="color:#f92672">=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])
+</span></span><span style="display:flex;"><span>                             <span style="color:#a6e22e">ExAllocatePoolWithTag</span>(PagedPool,(ulonglong)local_res20[<span style="color:#ae81ff">0</span>],<span style="color:#ae81ff">0xaabbccdd</span>);
+</span></span><span style="display:flex;"><span>                  <span style="color:#a6e22e">FUN_fffff80944e01c00</span>(pbOutput,<span style="color:#ae81ff">0</span>,(ulonglong)local_res20[<span style="color:#ae81ff">0</span>]);
+</span></span><span style="display:flex;"><span>                  <span style="color:#66d9ef">if</span> (pbOutput <span style="color:#f92672">!=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>) {
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">BCryptDecrypt</span>(local_48[<span style="color:#ae81ff">0</span>],param_1,param_2,(<span style="color:#66d9ef">void</span> <span style="color:#f92672">*</span>)<span style="color:#ae81ff">0x0</span>,(PUCHAR)pbIV,
+</span></span><span style="display:flex;"><span>                                  local_res18[<span style="color:#ae81ff">0</span>],(PUCHAR)pbOutput,local_res20[<span style="color:#ae81ff">0</span>],local_res20,<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>                  }
+</span></span><span style="display:flex;"><span>                }
+</span></span><span style="display:flex;"><span>              }
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (local_50 <span style="color:#f92672">!=</span> (BCRYPT_ALG_HANDLE)<span style="color:#ae81ff">0x0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">BCryptCloseAlgorithmProvider</span>(local_50,<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (local_48[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">!=</span> (BCRYPT_KEY_HANDLE)<span style="color:#ae81ff">0x0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">BCryptDestroyKey</span>(local_48[<span style="color:#ae81ff">0</span>]);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (pbKeyObject <span style="color:#f92672">!=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExFreePoolWithTag</span>(pbKeyObject,<span style="color:#ae81ff">0xaabbccdd</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (pbIV <span style="color:#f92672">!=</span> (<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>) [<span style="color:#ae81ff">16</span>])<span style="color:#ae81ff">0x0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExFreePoolWithTag</span>(pbIV,<span style="color:#ae81ff">0xaabbccdd</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> pbOutput;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>NTSTATUS <span style="color:#a6e22e">driverDispatch</span>(PDEVICE_OBJECT deviceObject,PIRP irp)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  _IO_STACK_LOCATION <span style="color:#f92672">*</span>p_Var1;
+</span></span><span style="display:flex;"><span>  undefined4 <span style="color:#f92672">*</span>puVar2;
+</span></span><span style="display:flex;"><span>  undefined4 uVar3;
+</span></span><span style="display:flex;"><span>  undefined4 uVar4;
+</span></span><span style="display:flex;"><span>  undefined4 uVar5;
+</span></span><span style="display:flex;"><span>  NTSTATUS NVar6;
+</span></span><span style="display:flex;"><span>  uint newpos;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">size_t</span> _Size;
+</span></span><span style="display:flex;"><span>  longlong bufpos;
+</span></span><span style="display:flex;"><span>  undefined auStack_98 [<span style="color:#ae81ff">32</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> regkey_val [<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>  undefined local_70 [<span style="color:#ae81ff">8</span>];
+</span></span><span style="display:flex;"><span>  undefined4 uStack_68;
+</span></span><span style="display:flex;"><span>  undefined4 uStack_64;
+</span></span><span style="display:flex;"><span>  undefined local_60 [<span style="color:#ae81ff">8</span>];
+</span></span><span style="display:flex;"><span>  undefined4 uStack_58;
+</span></span><span style="display:flex;"><span>  undefined4 uStack_54;
+</span></span><span style="display:flex;"><span>  undefined buf [<span style="color:#ae81ff">8</span>];
+</span></span><span style="display:flex;"><span>  undefined4 uStack_48;
+</span></span><span style="display:flex;"><span>  undefined4 uStack_44;
+</span></span><span style="display:flex;"><span>  undefined local_40 [<span style="color:#ae81ff">8</span>];
+</span></span><span style="display:flex;"><span>  undefined4 uStack_38;
+</span></span><span style="display:flex;"><span>  undefined4 uStack_34;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> key [<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>  ulonglong local_10;
+</span></span><span style="display:flex;"><span>  ULONG ioctl;
+</span></span><span style="display:flex;"><span>  PCSTR key_in;
+</span></span><span style="display:flex;"><span>  uint keypos;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">*</span>pResult) [<span style="color:#ae81ff">16</span>];
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  local_10 <span style="color:#f92672">=</span> DAT_fffff80944e03000 <span style="color:#f92672">^</span> (ulonglong)auStack_98;
+</span></span><span style="display:flex;"><span>  p_Var1 <span style="color:#f92672">=</span> (irp<span style="color:#f92672">-&gt;</span>Tail).Overlay.field3_0x30.field1_0x10.CurrentStackLocation;
+</span></span><span style="display:flex;"><span>  regkey_val <span style="color:#f92672">=</span> (<span style="color:#66d9ef">char</span>  [<span style="color:#ae81ff">4</span>])<span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>  _buf <span style="color:#f92672">=</span> <span style="color:#a6e22e">ZEXT816</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  _local_40 <span style="color:#f92672">=</span> <span style="color:#a6e22e">ZEXT816</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  _local_70 <span style="color:#f92672">=</span> <span style="color:#a6e22e">ZEXT816</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  _local_60 <span style="color:#f92672">=</span> <span style="color:#a6e22e">ZEXT816</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* This should retrieve 0xa11ceb0b */</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">read_registry_key</span>(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">Registry</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">Machine</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">SOFTWARE</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">AliceInWonderlandTeaParty&#34;</span>,<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;CareForTea&#34;</span>,
+</span></span><span style="display:flex;"><span>                    regkey_val);
+</span></span><span style="display:flex;"><span>  pResult <span style="color:#f92672">=</span> DECRYPTED_FLAG;
+</span></span><span style="display:flex;"><span>  ioctl <span style="color:#f92672">=</span> (p_Var1<span style="color:#f92672">-&gt;</span>Parameters).QueryDirectory.FileIndex;
+</span></span><span style="display:flex;"><span>  key <span style="color:#f92672">=</span> regkey_val;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (ioctl <span style="color:#f92672">==</span> IOCTL_GETFLAG1) {
+</span></span><span style="display:flex;"><span>    key_in <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(PCSTR <span style="color:#f92672">*</span>)((longlong)<span style="color:#f92672">&amp;</span>irp<span style="color:#f92672">-&gt;</span>AssociatedIrp <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">DbgPrint</span>(key_in);
+</span></span><span style="display:flex;"><span>    _Size <span style="color:#f92672">=</span> <span style="color:#ae81ff">0xffffffffffffffff</span>;
+</span></span><span style="display:flex;"><span>    _AES_KEY <span style="color:#f92672">=</span> <span style="color:#a6e22e">ZEXT816</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    _DAT_fffff80944e03068 <span style="color:#f92672">=</span> <span style="color:#a6e22e">ZEXT816</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">do</span> {
+</span></span><span style="display:flex;"><span>      _Size <span style="color:#f92672">=</span> _Size <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">while</span> (key_in[_Size] <span style="color:#f92672">!=</span> <span style="color:#e6db74">&#39;\0&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">memmove</span>(<span style="color:#f92672">&amp;</span>AES_KEY,key_in,_Size);
+</span></span><span style="display:flex;"><span>    DECRYPTED_FLAG <span style="color:#f92672">=</span> <span style="color:#a6e22e">decrypt_aes</span>(<span style="color:#f92672">&amp;</span>ENCRYPTED_FLAG,<span style="color:#ae81ff">0x30</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">DbgPrint</span>((PCSTR)DECRYPTED_FLAG);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (ioctl <span style="color:#f92672">==</span> IOCTL_GETFLAG2) {
+</span></span><span style="display:flex;"><span>    puVar2 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">**</span>)((longlong)<span style="color:#f92672">&amp;</span>(irp<span style="color:#f92672">-&gt;</span>AssociatedIrp).MasterIrp <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>    (p_Var1<span style="color:#f92672">-&gt;</span>Parameters).Read.Key <span style="color:#f92672">=</span> <span style="color:#ae81ff">8</span>;
+</span></span><span style="display:flex;"><span>    uVar3 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)((longlong)<span style="color:#f92672">*</span>pResult <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>    uVar4 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)((longlong)<span style="color:#f92672">*</span>pResult <span style="color:#f92672">+</span> <span style="color:#ae81ff">8</span>);
+</span></span><span style="display:flex;"><span>    uVar5 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)((longlong)<span style="color:#f92672">*</span>pResult <span style="color:#f92672">+</span> <span style="color:#ae81ff">0xc</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>puVar2 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)<span style="color:#f92672">*</span>pResult;
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">=</span> uVar3;
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">=</span> uVar4;
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">3</span>] <span style="color:#f92672">=</span> uVar5;
+</span></span><span style="display:flex;"><span>    uVar3 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)(pResult[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>    uVar4 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)(pResult[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">+</span> <span style="color:#ae81ff">8</span>);
+</span></span><span style="display:flex;"><span>    uVar5 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)(pResult[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">+</span> <span style="color:#ae81ff">0xc</span>);
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">4</span>] <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)pResult[<span style="color:#ae81ff">1</span>];
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">5</span>] <span style="color:#f92672">=</span> uVar3;
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">6</span>] <span style="color:#f92672">=</span> uVar4;
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">7</span>] <span style="color:#f92672">=</span> uVar5;
+</span></span><span style="display:flex;"><span>    uVar3 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)(pResult[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>    uVar4 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)(pResult[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">+</span> <span style="color:#ae81ff">8</span>);
+</span></span><span style="display:flex;"><span>    uVar5 <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)(pResult[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">+</span> <span style="color:#ae81ff">0xc</span>);
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">8</span>] <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(undefined4 <span style="color:#f92672">*</span>)pResult[<span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">9</span>] <span style="color:#f92672">=</span> uVar3;
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">10</span>] <span style="color:#f92672">=</span> uVar4;
+</span></span><span style="display:flex;"><span>    puVar2[<span style="color:#ae81ff">0xb</span>] <span style="color:#f92672">=</span> uVar5;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExFreePoolWithTag</span>(pResult,<span style="color:#ae81ff">0xaabbccdd</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (ioctl <span style="color:#f92672">==</span> IOCTL_GETHASH1) {
+</span></span><span style="display:flex;"><span>      pResult <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">**</span>) [<span style="color:#ae81ff">16</span>])((longlong)<span style="color:#f92672">&amp;</span>irp<span style="color:#f92672">-&gt;</span>AssociatedIrp <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>      (p_Var1<span style="color:#f92672">-&gt;</span>Parameters).Read.Key <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x20</span>;
+</span></span><span style="display:flex;"><span>      bufpos <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>      keypos <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">do</span> {
+</span></span><span style="display:flex;"><span>        newpos <span style="color:#f92672">=</span> keypos <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* &#34;&amp;3&#34; == &#34;%4&#34; */</span>
+</span></span><span style="display:flex;"><span>        buf[bufpos] <span style="color:#f92672">=</span> key[keypos <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">3</span>] <span style="color:#f92672">^</span> (<span style="color:#f92672">&amp;</span>ENCRYPTED_HASH1)[bufpos];
+</span></span><span style="display:flex;"><span>        bufpos <span style="color:#f92672">=</span> bufpos <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>        keypos <span style="color:#f92672">=</span> newpos;
+</span></span><span style="display:flex;"><span>      } <span style="color:#66d9ef">while</span> ((<span style="color:#66d9ef">int</span>)newpos <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0x20</span>);
+</span></span><span style="display:flex;"><span>      local_70._0_4_ <span style="color:#f92672">=</span> buf._0_4_;
+</span></span><span style="display:flex;"><span>      local_70._4_4_ <span style="color:#f92672">=</span> buf._4_4_;
+</span></span><span style="display:flex;"><span>      uStack_68 <span style="color:#f92672">=</span> uStack_48;
+</span></span><span style="display:flex;"><span>      uStack_64 <span style="color:#f92672">=</span> uStack_44;
+</span></span><span style="display:flex;"><span>      local_60._0_4_ <span style="color:#f92672">=</span> local_40._0_4_;
+</span></span><span style="display:flex;"><span>      local_60._4_4_ <span style="color:#f92672">=</span> local_40._4_4_;
+</span></span><span style="display:flex;"><span>      uStack_58 <span style="color:#f92672">=</span> uStack_38;
+</span></span><span style="display:flex;"><span>      uStack_54 <span style="color:#f92672">=</span> uStack_34;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (ioctl <span style="color:#f92672">!=</span> IOCTL_GETHASH2) <span style="color:#66d9ef">goto</span> LAB_fffff80944e01469;
+</span></span><span style="display:flex;"><span>      pResult <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(<span style="color:#a6e22e">undefined</span> (<span style="color:#f92672">**</span>) [<span style="color:#ae81ff">16</span>])((longlong)<span style="color:#f92672">&amp;</span>irp<span style="color:#f92672">-&gt;</span>AssociatedIrp <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>      (p_Var1<span style="color:#f92672">-&gt;</span>Parameters).Read.Key <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x20</span>;
+</span></span><span style="display:flex;"><span>      bufpos <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>      keypos <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">do</span> {
+</span></span><span style="display:flex;"><span>        newpos <span style="color:#f92672">=</span> keypos <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>        local_70[bufpos] <span style="color:#f92672">=</span> key[keypos <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">3</span>] <span style="color:#f92672">^</span> (<span style="color:#f92672">&amp;</span>ENCRYPTED_HASH2)[bufpos];
+</span></span><span style="display:flex;"><span>        bufpos <span style="color:#f92672">=</span> bufpos <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>        keypos <span style="color:#f92672">=</span> newpos;
+</span></span><span style="display:flex;"><span>      } <span style="color:#66d9ef">while</span> ((<span style="color:#66d9ef">int</span>)newpos <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0x20</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>pResult <span style="color:#f92672">=</span> <span style="color:#a6e22e">CONCAT412</span>(uStack_64,<span style="color:#a6e22e">CONCAT48</span>(uStack_68,<span style="color:#a6e22e">CONCAT44</span>(local_70._4_4_,local_70._0_4_)));
+</span></span><span style="display:flex;"><span>    pResult[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">CONCAT412</span>(uStack_54,<span style="color:#a6e22e">CONCAT48</span>(uStack_58,<span style="color:#a6e22e">CONCAT44</span>(local_60._4_4_,local_60._0_4_)));
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>LAB_fffff80944e01469:
+</span></span><span style="display:flex;"><span>  (irp<span style="color:#f92672">-&gt;</span>IoStatus).field0_0x0.Status <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>  (irp<span style="color:#f92672">-&gt;</span>IoStatus).Information <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x30</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">IofCompleteRequest</span>(irp,<span style="color:#e6db74">&#39;\0&#39;</span>);
+</span></span><span style="display:flex;"><span>  NVar6 <span style="color:#f92672">=</span> <span style="color:#a6e22e">FUN_fffff80944e017a0</span>(local_10 <span style="color:#f92672">^</span> (ulonglong)auStack_98);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> NVar6;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The <code>driverDispatch</code> function basically does the following:</p>
+<ol>
+<li>Read a registry value at <em>HKEY_LOCAL_MACHINE\SOFTWARE\AliceInWonderlandTeaParty\CareForTea</em> as a key</li>
+<li>Parse IOCtl value from IRP and switch code path accordingly
+<ul>
+<li><code>IOCTL_GETFLAG1</code>: 2236416 (0x222000)
+<ol>
+<li>Read the encrypted flag 0x74F814897D5AC9C05301FD9922C3AC84FDFB4312FF39AB49EE39E580C1F5160C</li>
+<li>Read the key from user provided memory</li>
+<li>Looking at the <code>decrypt_aes</code> function (omitted for brevity) we can look at the code and used strings to infer the used initialization vector and algorithm: It&rsquo;s AES-CBC with an IV of concatenated hex values from 0x00 to 0x0F. The key needs to be provided as 32 byte string.</li>
+</ol>
+</li>
+<li><code>IOCTL_GETFLAG2</code>: 2236420 (0x222004)
+<ol>
+<li>Write the in <code>IOCTL_GETFLAG1</code> calculated value to the IRP struct</li>
+</ol>
+</li>
+<li><code>IOCTL_GETHASH1</code> : 2236424 (0x222008)
+<ol>
+<li>Read the encrypted hash 0x39D32A983EDF7AC36EDA25C03F8F79993DDE2B99328D78C73CDE7FC26ADE79C0</li>
+<li>Do a byte wise XOR operation on this encrypted hash with the cyclic key retrieved from the registry.</li>
+<li>Return the result via IRP struct</li>
+</ol>
+</li>
+<li><code>IOCTL_GETHASH2</code> : 2236428 (0x22200c)
+<ol>
+<li>Read the encrypted hash 0x32892DC73AD37EC2328E29943DD27AC33ADD2AC039D97FC03D8E7E9238DC7D95</li>
+<li>Do a byte wise XOR operation on this encrypted hash with the cyclic key retrieved from the registry.</li>
+<li>Return the result via IRP struct</li>
+</ol>
+</li>
+</ul>
+</li>
+<li>Return the result buffer via IRP struct</li>
+</ol>
+<p>So, how do we get the value of the registry key <em>HKEY_LOCAL_MACHINE\SOFTWARE\AliceInWonderlandTeaParty\CareForTea</em>? Volatility allows us to search the registry keys opened during memory image dump:</p>
+<pre tabindex="0"><code>❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.registry.printkey --key &#34;AliceInWonderlandTeaParty&#34; --recurse
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+Last Write Time	Hive Offset	Type	Key	Name	Data	Volatile
+
+-	0xde88d0023000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d003d000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d0078000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d77e2000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6119000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7dc6000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7d21000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7d06000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7bae000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d716f000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6a54000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d692b000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6335000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d62ff000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6177000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d606c000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d5ff3000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d0c29000	Key	?\AliceInWonderlandTeaParty	-		-
+2022-09-02 22:32:25.000000 	0xde88d0ae4000	REG_DWORD	\SystemRoot\System32\Config\SOFTWARE\AliceInWonderlandTeaParty	CareForTea	2703026955	False
+</code></pre><p>It is the DWORD (4 byte) 2703026955, which looks unsuspicious until you convert it to hex: <strong>0xa11ceb0b</strong></p>
+<p>We can verify our suspected MD5 hash <em>286954fbe19a4de865789fdf75cca5ea</em> is the result of <code>IOCTL_GETHASH1</code> and obtain <em>9b1f18bc9e5569fb166a22ca6eb337a4</em> as result for <code>IOCTL_GETHASH2</code> with <a href="https://gchq.github.io/CyberChef/#recipe=Fork('%5C%5Cn','%5C%5Cn',false)From_Hex('None')XOR(%7B'option':'Hex','string':'0beb1ca1'%7D,'Standard',false)&amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMAozMjg5MkRDNzNBRDM3RUMyMzI4RTI5OTQzREQyN0FDMzNBREQyQUMwMzlEOTdGQzAzRDhFN0U5MjM4REM3RDk1">CyberChef</a>. If we were really confident about our guess we could even have <a href="https://gchq.github.io/CyberChef/#recipe=From_Hex('None')XOR(%7B'option':'Latin1','string':'286954fbe19a4de865789fdf75cca5ea'%7D,'Standard',false)Swap_endianness('Raw',4,false)To_Hex('Space',4)&amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMA">reversed the encryption key</a> instead of getting it from the memory dump!</p>
+<p>Although not necessary we tried to reverse the hash <em>9b1f18bc9e5569fb166a22ca6eb337a4</em>. It wasn&rsquo;t available in any rainbow table we found, but we found the corresponding cleartext <em>WHOTHEFUCKISALICE</em> by chance. Looks like the passcode is meant to be case insensitive but case consistent.</p>
+<p>Now we have everything we need to get the flag and write a little python script:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>h1 <span style="color:#f92672">=</span> unhex(<span style="color:#e6db74">&#39;39D32A983EDF7AC36EDA25C03F8F79993DDE2B99328D78C73CDE7FC26ADE79C0&#39;</span>)
+</span></span><span style="display:flex;"><span>print(xor(h1, p32(<span style="color:#ae81ff">0xA11CEB0B</span>)))
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 286954fbe19a4de865789fdf75cca5ea</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>h2 <span style="color:#f92672">=</span> unhex(<span style="color:#e6db74">&#39;32892DC73AD37EC2328E29943DD27AC33ADD2AC039D97FC03D8E7E9238DC7D95&#39;</span>)
+</span></span><span style="display:flex;"><span>print(xor(h2, p32(<span style="color:#ae81ff">0xA11CEB0B</span>)))
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 9b1f18bc9e5569fb166a22ca6eb337a4</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>passcode <span style="color:#f92672">=</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#39;whothefuckisalice&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>key <span style="color:#f92672">=</span> passcode<span style="color:#f92672">.</span>ljust(<span style="color:#ae81ff">32</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#39;</span><span style="color:#ae81ff">\x00</span><span style="color:#e6db74">&#39;</span>)
+</span></span><span style="display:flex;"><span>ciphertext <span style="color:#f92672">=</span> unhex(<span style="color:#e6db74">&#39;74F814897D5AC9C05301FD9922C3AC84FDFB4312FF39AB49EE39E580C1F5160C&#39;</span>)
+</span></span><span style="display:flex;"><span>iv <span style="color:#f92672">=</span> unhex(<span style="color:#e6db74">&#39;00102030405060708090A0B0C0D0E0F&#39;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> Crypto.Cipher <span style="color:#f92672">import</span> AES
+</span></span><span style="display:flex;"><span>print(key)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>aes <span style="color:#f92672">=</span> AES<span style="color:#f92672">.</span>new(key, AES<span style="color:#f92672">.</span>MODE_CBC, iv)
+</span></span><span style="display:flex;"><span>print(aes<span style="color:#f92672">.</span>decrypt(ciphertext))
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INTENT{0ff_w1th_7h31r_H34ds}</span>
+</span></span></code></pre></div><h2 id="off-with-their-heads-disable-windows-security-features">Off With Their Heads: Disable Windows Security Features<a href="#off-with-their-heads-disable-windows-security-features" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p><strong>Now, we already got the flag through reverse engineering the device driver&hellip; but why didn&rsquo;t it work like advertised? Why didn&rsquo;t we get the flag when running the executable?</strong></p>
+<p>Turns out, there is a thing calles <em>Driver Signature Enforcement</em> that prevents loading device not signed by Microsoft. This may indeed be a smart move generally, but as our <em>TeaParty.sys</em> is not signed, we have to disable it.</p>
+<p>The failed signature and integrity checks are written to the Windows event log and can be viewed with the <em>Event Viewer</em> in the <em>Audit</em> log category.</p>
+<p>In a <em>Command Prompt (cmd.exe)</em>, started with System privileges (Right click, run as administrator), execute:</p>
+<pre tabindex="0"><code>bcdedit -set TESTSIGNING OFF
+</code></pre><p>and restart Windows. After a reboot, there should be the following <em>Test Mode</em> watermark visible.</p>
+<p><img src="/img/intentctf22-forensic-tea-party/image-20221227023833349.png" alt="image-20221227023833349"></p>
+<p>Make sure <em>Virus &amp;  Threat Protection</em> is still off and run <em>TeaParty.exe</em>.</p>
+<p><strong>Et Voila:</strong> When we type <em>whothefuckisalice</em>, the <strong>flag</strong> appears!</p>
+<p>c<img src="/img/intentctf22-forensic-tea-party/image-20221227024123467.png" alt="image-20221227024123467"></p>
+<p><strong>And we even could get it without fully reversing <em>TeaParty.sys</em>, inferring the password from the process memory and modifying the .Net assembly like we tried above. Neat!</strong></p>
+<h2 id="leaving-wonderland-summary">Leaving Wonderland: Summary<a href="#leaving-wonderland-summary" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>I really liked this challenge as it needed quite a broad skill set to obtain the flag and introduced a couple of techniques and tools one could use:</p>
+<ul>
+<li>Memory Dump Analysis (<a href="https://github.com/volatilityfoundation/volatility3">volatility</a>)</li>
+<li>.Net Assembly Analysis and Modification (<a href="https://github.com/dnSpy/dnSpy">DNSpy</a>)</li>
+<li>Hash cracking using rainbow tables (<a href="https://crackstation.net">crackstation.net</a>)</li>
+<li><a href="https://www-user.tu-chemnitz.de/~heha/oney_wdm/ch09d.htm">Windows Driver Model API I/O Control</a></li>
+<li>x64 Windows PE Binary Reversing (<a href="https://ghidra-sre.org/">Ghidra</a>)</li>
+<li><a href="https://answers.microsoft.com/en-us/windows/forum/all/windows-10-pro-test-mode/27b555ca-852a-44c7-b42f-c84b8eec06f2">Windows Driver Signature Enforcement</a></li>
+</ul>
+<p>I really enjoyed this challenge and was really elated to be able to solve this challenge just at the last our of INTENT CTF - of course with generous help of my team mates :)</p>
+<p>Kudos to <a href="https://twitter.com/rotemsalinas">@rotemsalinas</a> for this great challenge!</p>
+
+      </div></div>
+
+  
+  
+<div class="pagination">
+    <div class="pagination__title">
+        <span class="pagination__title-h">Read other posts</span>
+        <hr />
+    </div>
+    <div class="pagination__buttons">
+        
+        
+        <span class="button next">
+            <a href="/posts/csr22-scramble/">
+                <span class="button__text">Cyber Security Rumble 2022 - Scramble</span>
+                <span class="button__icon">→</span>
+            </a>
+        </span>
+        
+    </div>
+</div>
+
+  
+
+  
+
+</div>
+
+  </div>
+
+  
+    <footer class="footer">
+  <div class="footer__inner">
+    
+      <div class="copyright copyright--user">
+        <span>© 2021-2022 CyberTaskForce Zero</span>
+    
+        <span>:: Theme made by <a href="https://twitter.com/panr">panr</a></span>
+      </div>
+  </div>
+</footer>
+
+<script src="/assets/main.js"></script>
+<script src="/assets/prism.js"></script>
+
+
+
+
+
+
+
+  
+</div>
+
+</body>
+</html>

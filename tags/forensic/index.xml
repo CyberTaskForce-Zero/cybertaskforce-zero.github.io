@@ -1,0 +1,794 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>forensic on CyberTaskForce Zero</title>
+    <link>/tags/forensic/</link>
+    <description>Recent content in forensic on CyberTaskForce Zero</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
+    <lastBuildDate>Tue, 27 Dec 2022 19:10:24 +0100</lastBuildDate><atom:link href="/tags/forensic/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>INTENT CTF 2022 - Forensic Tea Party</title>
+      <link>/posts/intentctf22-forensic-tea-party/</link>
+      <pubDate>Tue, 27 Dec 2022 19:10:24 +0100</pubDate>
+      
+      <guid>/posts/intentctf22-forensic-tea-party/</guid>
+      <description>The following challenge was part of the Alice in Wonderland themed INTENT CTF 2022 and was tagged as Forensics and Reverse Engineering challenge. This was the first time I did memory dump analysis, and really enjoyed the different &amp;ldquo;layers&amp;rdquo; to uncover and reverse. So please bear with my forced puns and references to Alice in Wonderland and read on&amp;hellip;
+Challenge Description Analyze the memory dump to find any suspicious processes and find the flag.</description>
+      <content>&lt;p&gt;The following challenge was part of the &lt;em&gt;Alice in Wonderland&lt;/em&gt; themed INTENT CTF 2022 and was tagged as &lt;em&gt;Forensics&lt;/em&gt; and &lt;em&gt;Reverse Engineering&lt;/em&gt; challenge. This was the first time I did memory dump analysis, and really enjoyed the different &amp;ldquo;layers&amp;rdquo; to uncover and reverse. So please bear with my forced puns and references to &lt;em&gt;Alice in Wonderland&lt;/em&gt; and read on&amp;hellip;&lt;/p&gt;
+&lt;h2 id=&#34;challenge-description&#34;&gt;Challenge Description&lt;/h2&gt;
+&lt;p&gt;Analyze the memory dump to find any suspicious processes and find the flag.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;File: Windows10x64_AliceInWonderland-b4365e16.vmem&lt;/em&gt; (~1GB)&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;Hint: md5 hashes can be cracked by using rainbow tables &lt;a href=&#34;https://crackstation.net/&#34;&gt;https://crackstation.net/&lt;/a&gt;&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;Author: &lt;a href=&#34;https://twitter.com/rotemsalinas&#34;&gt;@rotemsalinas&lt;/a&gt;&lt;/em&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;crawling-into-the-rabbit-hole-first-memory-analysis-and-data-extraction&#34;&gt;Crawling Into The Rabbit Hole: First Memory Analysis and Data Extraction&lt;/h2&gt;
+&lt;p&gt;As the &lt;code&gt;file&lt;/code&gt; utility does not recognize any file structure in our VMEM file, we found through online research that a &lt;code&gt;vmem&lt;/code&gt; file is a raw dump of virtual machine memory. It can be a page file or (most likely in our case) a &lt;a href=&#34;https://knowledge.broadcom.com/external/article/181598/how-to-convert-a-vmware-virtual-machine.html&#34;&gt;full memory dump converted from a VM snapshot&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Analyzing memory snapshots can be done with &lt;a href=&#34;https://www.volatilityfoundation.org&#34;&gt;volatility&lt;/a&gt;. It comes in a &lt;em&gt;2.x&lt;/em&gt; and &lt;em&gt;3.x&lt;/em&gt; branch, the latter a &lt;em&gt;python3&lt;/em&gt; rewrite which hasn&amp;rsquo;t achieved feature parity yet. I chose the &lt;em&gt;3.x&lt;/em&gt; branch as I didn&amp;rsquo;t want to mess with &lt;em&gt;python2&lt;/em&gt;, but in retrospect I could have used a precompiled binary version of both branches.&lt;/p&gt;
+&lt;p&gt;Let&amp;rsquo;s verify what we have in that memory dump.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.info
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                                                                                              
+Variable	Value
+
+Kernel Base	0xf80378e83000
+DTB	0x1ab000
+Symbols	file:///usr/lib/python3.10/site-packages/volatility3/symbols/windows/ntkrnlmp.pdb/CB2D765201C348A8B9FB66294E6614F7-1.json.xz
+Is64Bit	True
+IsPAE	False
+layer_name	0 WindowsIntel32e
+memory_layer	1 FileLayer
+KdVersionBlock	0xf803791d8720
+Major/Minor	15.16299
+MachineType	34404
+KeNumberProcessors	2
+SystemTime	2022-09-02 22:32:31
+NtSystemRoot	C:\Windows
+NtProductType	NtProductWinNt
+NtMajorVersion	10
+NtMinorVersion	0
+PE MajorOperatingSystemVersion	10
+PE MinorOperatingSystemVersion	0
+PE Machine	34404
+PE TimeDateStamp	Tue Apr  2 04:29:15 2019
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;OK, as expected we have a Windows 10 64-bit machine. Let&amp;rsquo;s have a look at the processes that were running during snapshot.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.pslist
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+PID	PPID	ImageFileName	Offset(V)	Threads	Handles	SessionId	Wow64	CreateTime	ExitTime	File output
+
+4	0	System	0xa08ce048c440	123	-	N/A	False	2022-09-02 22:01:11.000000 	N/A	Disabled
+280	4	smss.exe	0xa08ce1772040	3	-	N/A	False	2022-09-02 22:01:11.000000 	N/A	Disabled
+404	396	csrss.exe	0xa08ce1bb2580	11	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+476	280	smss.exe	0xa08ce1bb4580	0	-	1	False	2022-09-02 22:01:12.000000 	2022-09-02 22:01:12.000000 	Disabled
+484	396	wininit.exe	0xa08ce1fad080	5	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+492	476	csrss.exe	0xa08ce1fbb080	12	-	1	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+576	476	winlogon.exe	0xa08ce1ae6480	6	-	1	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+616	484	services.exe	0xa08ce204a080	11	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+632	484	lsass.exe	0xa08ce2051080	14	-	0	False	2022-09-02 22:01:12.000000 	N/A	Disabled
+740	616	svchost.exe	0xa08ce1a0e580	32	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+752	484	fontdrvhost.ex	0xa08ce1a44080	5	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+760	576	fontdrvhost.ex	0xa08ce1a46080	5	-	1	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+864	616	svchost.exe	0xa08ce1abc580	15	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+960	576	dwm.exe	0xa08ce20d4080	11	-	1	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1020	616	svchost.exe	0xa08ce20f2340	74	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+432	616	svchost.exe	0xa08ce2119280	27	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+396	616	svchost.exe	0xa08ce211f580	44	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+856	616	svchost.exe	0xa08ce2148580	20	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1092	616	svchost.exe	0xa08ce218a580	28	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1328	616	svchost.exe	0xa08ce21e3580	33	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1356	4	MemCompression	0xa08ce23e9280	18	-	N/A	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1524	616	svchost.exe	0xa08ce048f340	11	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1572	616	svchost.exe	0xa08ce04bc580	5	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1580	616	svchost.exe	0xa08ce04b4580	15	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1672	616	svchost.exe	0xa08ce04f9580	7	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1700	616	spoolsv.exe	0xa08ce04fb580	13	-	0	False	2022-09-02 22:01:13.000000 	N/A	Disabled
+1936	616	svchost.exe	0xa08ce1d28580	12	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+1980	616	SecurityHealth	0xa08ce1d4e580	11	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2004	616	vmtoolsd.exe	0xa08ce1d59580	13	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2012	616	VGAuthService.	0xa08ce1d57580	4	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2028	616	vm3dservice.ex	0xa08ce1d62580	5	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+1340	616	MsMpEng.exe	0xa08ce1d7d580	34	-	0	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2088	2028	vm3dservice.ex	0xa08ce1d94580	4	-	1	False	2022-09-02 22:01:14.000000 	N/A	Disabled
+2668	616	dllhost.exe	0xa08ce25de080	14	-	0	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2788	740	WmiPrvSE.exe	0xa08ce26af580	15	-	0	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2972	1020	sihost.exe	0xa08ce274b580	18	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2984	616	svchost.exe	0xa08ce273b580	24	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+3052	1020	taskhostw.exe	0xa08ce275b580	9	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2392	856	ctfmon.exe	0xa08ce27de580	9	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+2460	576	userinit.exe	0xa08ce284b340	0	-	1	False	2022-09-02 22:01:15.000000 	2022-09-02 22:01:37.000000 	Disabled
+2700	2460	explorer.exe	0xa08ce2853580	77	-	1	False	2022-09-02 22:01:15.000000 	N/A	Disabled
+3344	616	SearchIndexer.	0xa08ce28f3300	16	-	0	False	2022-09-02 22:01:16.000000 	N/A	Disabled
+3732	740	ShellExperienc	0xa08ce2a59080	28	-	1	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+3928	616	msdtc.exe	0xa08ce2b61580	12	-	0	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+4028	740	SearchUI.exe	0xa08ce2baf580	30	-	1	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+4088	740	RuntimeBroker.	0xa08ce2ce3080	9	-	1	False	2022-09-02 22:01:17.000000 	N/A	Disabled
+3196	740	RuntimeBroker.	0xa08ce2d60580	20	-	1	False	2022-09-02 22:01:18.000000 	N/A	Disabled
+4660	740	SkypeBackgroun	0xa08ce308b080	4	-	1	False	2022-09-02 22:01:19.000000 	N/A	Disabled
+5104	616	NisSrv.exe	0xa08ce2e82580	11	-	0	False	2022-09-02 22:01:21.000000 	N/A	Disabled
+3232	2700	MSASCuiL.exe	0xa08ce2db8580	4	-	1	False	2022-09-02 22:01:29.000000 	N/A	Disabled
+5912	2700	vmtoolsd.exe	0xa08ce304e080	8	-	1	False	2022-09-02 22:01:29.000000 	N/A	Disabled
+6100	2700	OneDrive.exe	0xa08ce2eb1080	23	-	1	False	2022-09-02 22:01:31.000000 	N/A	Disabled
+6164	6100	Microsoft.Shar	0xa08ce30c1580	0	-	1	False	2022-09-02 22:01:32.000000 	2022-09-02 22:01:43.000000 	Disabled
+6392	740	WmiPrvSE.exe	0xa08ce34ae580	8	-	0	False	2022-09-02 22:01:34.000000 	N/A	Disabled
+6668	616	svchost.exe	0xa08ce3004580	10	-	0	False	2022-09-02 22:01:39.000000 	N/A	Disabled
+4080	616	sedsvc.exe	0xa08ce2c4e080	4	-	0	False	2022-09-02 22:03:15.000000 	N/A	Disabled
+6616	616	svchost.exe	0xa08ce3515080	19	-	0	False	2022-09-02 22:04:14.000000 	N/A	Disabled
+2816	740	smartscreen.ex	0xa08ce2cea080	9	-	1	False	2022-09-02 22:09:43.000000 	N/A	Disabled
+4428	1524	audiodg.exe	0xa08ce30af580	6	-	0	False	2022-09-02 22:09:44.000000 	N/A	Disabled
+4484	2700	TeaParty.exe	0xa08ce26aa080	9	-	1	True	2022-09-02 22:26:18.000000 	N/A	Disabled
+6896	616	svchost.exe	0xa08ce2848580	6	-	0	False	2022-09-02 22:32:02.000000 	N/A	Disabled
+6356	616	sppsvc.exe	0xa08ce38cd580	9	-	0	False	2022-09-02 22:32:03.000000 	N/A	Disabled
+2932	740	SppExtComObj.E	0xa08ce2fef080	7	-	0	False	2022-09-02 22:32:03.000000 	N/A	Disabled
+5092	2932	slui.exe	0xa08ce216d2c0	7	-	0	False	2022-09-02 22:32:08.000000 	N/A	Disabled
+3244	740	slui.exe	0xa08ce2983580	7	-	1	False	2022-09-02 22:32:30.000000 	N/A	Disabled
+2316	2004	cmd.exe	0xa08ce2fb6580	0	-	0	False	2022-09-02 22:32:31.000000 	2022-09-02 22:32:31.000000 	Disabled
+6640	2316	conhost.exe	0xa08ce1ead580	0	-	0	False	2022-09-02 22:32:31.000000 	2022-09-02 22:32:31.000000 	Disabled
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Having the &lt;em&gt;Alice in Wonderland&lt;/em&gt; theme and the challenge name &lt;em&gt;Forensic Tea Party&lt;/em&gt; in mind, the process &lt;code&gt;TeaParty.exe&lt;/code&gt; with PID &lt;code&gt;4484&lt;/code&gt; looks very suspicious!&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;4484	2700	TeaParty.exe	0xa08ce26aa080	9	-	1	True	2022-09-02 22:26:18.000000 	N/A	Disabled
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;We can have a look at how the executable was called and where it resided on disk.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.cmdline --pid 4484
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+PID	Process	Args
+
+4484	TeaParty.exe	&amp;#34;C:\Users\TheMadHatter\Desktop\TeaParty.exe&amp;#34; 
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;I did try to locate other processes started from &lt;code&gt;C:\Users\TheMadHatter\Desktop\TeaParty.exe&lt;/code&gt; (omitting the &lt;code&gt;pid&lt;/code&gt; argument), but there were none. I also wasn&amp;rsquo;t able to dump the open file handles of the process - I don&amp;rsquo;t really know why.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.handles --pid 4484
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+PID	Process	Offset	HandleValue	Type	GrantedAccess	Name
+
+
+Volatility was unable to read a requested page:
+Page error 0xf80379570ff0 in layer layer_name (Page Fault at entry 0x5b5e00002064 in page entry)
+
+	* Memory smear during acquisition (try re-acquiring if possible)
+	* An intentionally invalid page lookup (operating system protection)
+	* A bug in the plugin/volatility3 (re-run with -vvv and file a bug)
+
+No further results will be produced
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;So, let&amp;rsquo;s dump the process memory and file for further analysis&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.memmap --pid 4484 --dump
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;we retrieve 323 Megabyte of process memory in file &lt;code&gt;pid.4484.dmp&lt;/code&gt;&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.filescan | grep TeaParty
+0xa08ce2930820.0\Users\TheMadHatter\Desktop\TeaParty.exe	216
+0xa08ce30512e0	\Users\TheMadHatter\Desktop\TeaParty.exe	216
+0xa08ce34c31c0	\Users\TheMadHatter\Desktop\TeaParty.exe	216
+0xa08ce38c74b0	\Program Files\AliceInWonderlandTeaParty\TeaParty.sys	216
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;What a surprise :) &lt;code&gt;TeaParty.sys&lt;/code&gt; will also play a part in this write-up later. Let&amp;rsquo;s dump both files.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.dumpfiles --virtaddr 0xa08ce34c31c0
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+Cache	FileObject	FileName	Result
+
+DataSectionObject	0xa08ce34c31c0	TeaParty.exe	file.0xa08ce34c31c0.0xa08ce34fb1b0.DataSectionObject.TeaParty.exe.dat
+ImageSectionObject	0xa08ce34c31c0	TeaParty.exe	file.0xa08ce34c31c0.0xa08ce2b1e2e0.ImageSectionObject.TeaParty.exe.img
+
+❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.dumpfiles --virtaddr 0xa08ce38c74b0
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+Cache	FileObject	FileName	Result
+
+DataSectionObject	0xa08ce38c74b0	TeaParty.sys	file.0xa08ce38c74b0.0xa08ce2ebde50.DataSectionObject.TeaParty.sys.dat
+ImageSectionObject	0xa08ce38c74b0	TeaParty.sys	file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;For each file we get two versions: A &lt;code&gt;dat&lt;/code&gt; data file representing the executable data (i.e. the executable file on disk that was started by the process) and am &lt;code&gt;img &lt;/code&gt; image file (i.e. the executable file loaded as it is loaded in RAM, with absolute addresses and all segments).&lt;/p&gt;
+&lt;h2 id=&#34;follow-the-rabbit-examining-and-reversing-the-executable&#34;&gt;Follow the Rabbit: Examining and Reversing the Executable&lt;/h2&gt;
+&lt;p&gt;The &lt;code&gt;file&lt;/code&gt; command makes me rejoice: It&amp;rsquo;s a .net assembly executable, which means that we can easily obtain and even manipulate the source in a high level language.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ file file.*
+file.0xa08ce34c31c0.0xa08ce2b1e2e0.ImageSectionObject.TeaParty.exe.img: PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows
+file.0xa08ce34c31c0.0xa08ce34fb1b0.DataSectionObject.TeaParty.exe.dat:  PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows
+file.0xa08ce38c74b0.0xa08ce2ebde50.DataSectionObject.TeaParty.sys.dat:  PE32+ executable (native) x86-64, for MS Windows
+file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ executable (native) x86-64, for MS Windows
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;So let&amp;rsquo;s rename the &lt;code&gt;dat&lt;/code&gt;s to their original filenames and fire up &lt;a href=&#34;https://github.com/icsharpcode/ILSpy&#34;&gt;ILSpy&lt;/a&gt; and load &lt;code&gt;TeaParty.exe&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221217193851517.png&#34; alt=&#34;image-20221217193851517&#34;&gt;&lt;/p&gt;
+&lt;p&gt;We can reverse the application code flow out of the &lt;code&gt;TeaParty&lt;/code&gt; class (excerpt - missing code is &lt;em&gt;kernel32.dll&lt;/em&gt;, &lt;em&gt;user32.dll&lt;/em&gt;, or &lt;em&gt;advapi32.dll&lt;/em&gt; windows API)&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-csharp&#34; data-lang=&#34;csharp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; CalculateMd5HexDigest(&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; data)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;using&lt;/span&gt; MD5 mD = MD5.Create();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; BitConverter.ToString(mD.ComputeHash(Encoding.ASCII.GetBytes(data))).Replace(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt;.Empty).ToLower();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; GetHash1()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr = CreateFileA(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;\\\\.\\TeaParty&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;1073741824&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;u, IntPtr.Zero, &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr2 = Marshal.AllocHGlobal(&lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; lpBytesReturned = &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;bool&lt;/span&gt; flag = DeviceIoControl(intPtr, &lt;span style=&#34;color:#ae81ff&#34;&gt;2236424&lt;/span&gt;u, IntPtr.Zero, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, intPtr2, &lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;u, &lt;span style=&#34;color:#66d9ef&#34;&gt;out&lt;/span&gt; lpBytesReturned, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] array = &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[&lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.Copy(intPtr2, array, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.FreeHGlobal(intPtr2);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	CloseHandle(intPtr);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; Encoding.ASCII.GetString(array);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;bool&lt;/span&gt; CheckDebugging()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (Environment.ProcessorCount &amp;lt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (IsDebuggerPresent() || Debugger.IsAttached)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; GetHash2()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (CheckDebugging())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		Environment.FailFast(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Suspecting Anti-Analysis Environment&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr = CreateFileA(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;\\\\.\\TeaParty&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;1073741824&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;u, IntPtr.Zero, &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr2 = Marshal.AllocHGlobal(&lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; lpBytesReturned = &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;bool&lt;/span&gt; flag = DeviceIoControl(intPtr, &lt;span style=&#34;color:#ae81ff&#34;&gt;2236428&lt;/span&gt;u, IntPtr.Zero, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, intPtr2, &lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;u, &lt;span style=&#34;color:#66d9ef&#34;&gt;out&lt;/span&gt; lpBytesReturned, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] array = &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[&lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.Copy(intPtr2, array, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.FreeHGlobal(intPtr2);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	CloseHandle(intPtr);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; Encoding.ASCII.GetString(array);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; GetFlag(&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; passcode)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr = CreateFileA(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;\\\\.\\TeaParty&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;1073741824&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;u, IntPtr.Zero, &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr2 = Marshal.AllocHGlobal(&lt;span style=&#34;color:#ae81ff&#34;&gt;512&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; lpBytesReturned = &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr3 = Marshal.AllocHGlobal(passcode.Length + &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.Copy(Encoding.ASCII.GetBytes(passcode + &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;\0&amp;#34;&lt;/span&gt;), &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, intPtr3, passcode.Length + &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;bool&lt;/span&gt; flag = DeviceIoControl(intPtr, &lt;span style=&#34;color:#ae81ff&#34;&gt;2236416&lt;/span&gt;u, intPtr3, (&lt;span style=&#34;color:#66d9ef&#34;&gt;uint&lt;/span&gt;)(passcode.Length + &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;), IntPtr.Zero, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, &lt;span style=&#34;color:#66d9ef&#34;&gt;out&lt;/span&gt; lpBytesReturned, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	flag = DeviceIoControl(intPtr, &lt;span style=&#34;color:#ae81ff&#34;&gt;2236420&lt;/span&gt;u, IntPtr.Zero, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, intPtr2, &lt;span style=&#34;color:#ae81ff&#34;&gt;512&lt;/span&gt;u, &lt;span style=&#34;color:#66d9ef&#34;&gt;out&lt;/span&gt; lpBytesReturned, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] array = &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[lpBytesReturned];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.Copy(intPtr2, array, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, lpBytesReturned);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	MessageBox.Show(Encoding.ASCII.GetString(array));
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.FreeHGlobal(intPtr2);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	Marshal.FreeHGlobal(intPtr3);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	CloseHandle(intPtr);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; Encoding.ASCII.GetString(array);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; passcodeLength = &lt;span style=&#34;color:#ae81ff&#34;&gt;17&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; List&amp;lt;&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt;&amp;gt; buffers = &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; List&amp;lt;&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt;&amp;gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;delegate&lt;/span&gt; IntPtr HookProc(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; nCode, IntPtr wParam, IntPtr lParam)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; IntPtr HookCallback(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; nCode, IntPtr wParam, IntPtr lParam)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (nCode &amp;gt;= &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt; &amp;amp;&amp;amp; wParam == (IntPtr)&lt;span style=&#34;color:#ae81ff&#34;&gt;256&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; num = Marshal.ReadInt32(lParam);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; (&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; i = &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; i &amp;lt; 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;             passcodeLength; i++)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            buffers[i] += (&lt;span style=&#34;color:#66d9ef&#34;&gt;char&lt;/span&gt;)num;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (CalculateMd5HexDigest(buffers.Last()) == GetHash1() || CalculateMd5HexDigest(buffers.Last()) == GetHash2())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			UnhookWindowsHookEx(hookId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			MessageBox.Show(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;You Got the FLAG!&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			GetFlag(buffers.Last().ToLower());
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			Application.Exit();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		buffers.RemoveAt(buffers.Count - &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		buffers.Insert(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; CallNextHookEx(hookId, nCode, wParam, lParam);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;bool&lt;/span&gt; ResourceExists(&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; resourceName)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; Assembly.GetCallingAssembly().GetManifestResourceNames().Contains(resourceName);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] ReadResource(&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; resourceName)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] array = &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;using&lt;/span&gt; Stream stream = Assembly.GetCallingAssembly().GetManifestResourceStream(resourceName);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		array = &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt;)stream.Length];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		stream.Read(array, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, (&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt;)stream.Length);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;catch&lt;/span&gt; (NullReferenceException ex)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;throw&lt;/span&gt; ex;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; array;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] GetResource(&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; resourceName)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	resourceName = Assembly.GetCallingAssembly().GetName().Name + &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;.&amp;#34;&lt;/span&gt; + resourceName;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (ResourceExists(resourceName))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; ReadResource(resourceName);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] decodeResource(&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] data)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] array = &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[data.Length];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; (&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; i = &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; i &amp;lt; data.Length; i++)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		array[i] = (&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;)(data[i] ^ &lt;span style=&#34;color:#ae81ff&#34;&gt;0xAA&lt;/span&gt;u);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; array;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; InstallDriver(&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; driverName, &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; driverPath)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr = IntPtr.Zero;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;[] resource = GetResource(driverName + &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;.sys&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (resource != &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		resource = decodeResource(resource);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (!File.Exists(driverPath))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (!Directory.Exists(Path.GetDirectoryName(driverPath)))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				Directory.CreateDirectory(Path.GetDirectoryName(driverPath));
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			File.WriteAllBytes(driverPath, resource);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	IntPtr intPtr2 = OpenSCManager(&lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;, &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;983103&lt;/span&gt;u);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (intPtr2 != IntPtr.Zero)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		intPtr = OpenService(intPtr2, driverName, &lt;span style=&#34;color:#ae81ff&#34;&gt;983551&lt;/span&gt;u);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (!(intPtr != IntPtr.Zero))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			intPtr = CreateServiceW(intPtr2, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;TeaParty&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AliceInWonderlandTeaParty&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;983103&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;u, &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;u, driverPath, &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;, IntPtr.Zero, &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt;.Empty, &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;, &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt;.Empty);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	StartServiceW(intPtr, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;u, IntPtr.Zero);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	CloseServiceHandle(intPtr);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	CloseServiceHandle(intPtr2);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; HookProc hookProc = HookCallback;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; Form1_Load(&lt;span style=&#34;color:#66d9ef&#34;&gt;object&lt;/span&gt; sender, EventArgs e)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	InstallDriver(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;TeaParty&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;C:\\Program Files\\AliceInWonderlandTeaParty\\TeaParty.sys&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (CheckDebugging())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		Environment.FailFast(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Suspecting Anti-Analysis Environment&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	hookId = SetHook(hookProc);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; (&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; i = &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; i &amp;lt; passcodeLength; i++)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		buffers.Add(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;We also can dump the XOR encrypted &lt;code&gt;TeaParty.sys&lt;/code&gt;, although we don&amp;rsquo;t really need to as we already have extracted the unencrypted version out of the memory dump.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221226215851318.png&#34; alt=&#34;image-20221226215851318&#34;&gt;&lt;/p&gt;
+&lt;p&gt;So, we can infer:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;On Startup, &lt;code&gt;TeaParty.sys&lt;/code&gt; is decoded (XOR with 0xAA) and copied to &lt;code&gt;C:\Program Files\AliceInWonderlandTeaParty\TeaParty.sys&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;As Anti-Debugging measure, it is checked if a Debugger is present or we run on a machine with a single CPU core (this may be targeting VMs?)&lt;/li&gt;
+&lt;li&gt;We save the last 17 characters typed in a buffer, the last 16 in another, the last 15 in another&amp;hellip; and so on. Why? I don&amp;rsquo;t really know, only the full one is used.&lt;/li&gt;
+&lt;li&gt;We check if the MD5 hash of the last input password is the same as the either the result of &lt;code&gt;GetHash1&lt;/code&gt; or &lt;code&gt;GetHash2&lt;/code&gt;.
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;GetHash1&lt;/code&gt; runs the &lt;a href=&#34;https://learn.microsoft.com/en-us/windows/win32/devio/device-input-and-output-control-ioctl-&#34;&gt;IOCtl (Input/Output Control)&lt;/a&gt; 2236424 of device driver &lt;code&gt;\\.\TeaParty&lt;/code&gt; and returns the result&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;GetHash2&lt;/code&gt; runs the &lt;a href=&#34;https://learn.microsoft.com/en-us/windows/win32/devio/device-input-and-output-control-ioctl-&#34;&gt;IOCtl (Input/Output Control)&lt;/a&gt; 2236428 of device driver &lt;code&gt;\\.\TeaParty&lt;/code&gt; and returns the result&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;If we pass this check, we retrieve a confirmation dialog and another dialog that outputs the flag:
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;GetFlag&lt;/code&gt; runs the &lt;a href=&#34;https://learn.microsoft.com/en-us/windows/win32/devio/device-input-and-output-control-ioctl-&#34;&gt;IOCtls (Input/Output Control)&lt;/a&gt; 2236416 and 2236420 of device driver &lt;code&gt;\\.\TeaParty&lt;/code&gt; and returns the result each time. The last result is displayed in a Message Box.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;When running &lt;code&gt;TeaParty.exe&lt;/code&gt;we are greeted with a GIF image from Disney&amp;rsquo;s Alice in Wonderland:&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221226223154580.png&#34; alt=&#34;image-20221226223154580&#34;&gt;&lt;/p&gt;
+&lt;p&gt;So, the interesting bits - Hashes and flag - are hidden in the &lt;em&gt;TeaParty.sys&lt;/em&gt; device driver and are queried from the device at runtime.&lt;/p&gt;
+&lt;h2 id=&#34;drowning-in-my-own-tears-retrieve-the-flag-without-reverse-engineering-the-driver&#34;&gt;Drowning In My Own Tears: Retrieve the Flag Without Reverse Engineering the Driver?&lt;/h2&gt;
+&lt;p&gt;Being a bit intimidated by the outlook of having to reverse a windows driver and keeping the hint about &lt;em&gt;rainbow tables&lt;/em&gt; in mind, I thought about staying in my comfort zone and just reversing one of the 2 hashes supplied by the &lt;code&gt;GetHash1&lt;/code&gt;and &lt;code&gt;GetHash2&lt;/code&gt; functions.&lt;/p&gt;
+&lt;p&gt;If we dumped the memory of a running and unlocked &lt;em&gt;TeaParty.exe&lt;/em&gt; we should see the hash in memory, right? It&amp;rsquo;s quite likely these functions not only generate a hex digest of the MD5 checksums, but keep it in memory after the flag is displayed.&lt;/p&gt;
+&lt;p&gt;Let&amp;rsquo;s enumerate all strings in our process dump that could be valid MD5 hashes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;32 characters long&lt;/li&gt;
+&lt;li&gt;Only contains lowercase and characters and digits (Note: uppercase characters would be valid hashes but as we compare against a &lt;code&gt;ToLower()&lt;/code&gt;ed string we can assume the target hashes are also lowercase).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ strings -n 32 pid.4484.dmp | grep --color=never -E &amp;#34;^[0-9a-f]{32}$&amp;#34; | sort -u
+142061edd8b57809b8ff617c4556c787
+286954fbe19a4de865789fdf75cca5ea
+33333333333333333333333333330000
+33333333333333333333333333333333
+6675b1f9603ec9e014cdcf6c3be6c860
+85df50e08a81b2e0942b3b323435278f
+9b1f18bc9e5569fb166a22ca6eb337a4
+acd76752011afb91f5ca6f707066b350
+f5c18c5029e778b383c1ec34f156cf6b
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Let&amp;rsquo;s feed those hashes into &lt;a href=&#34;https://crackstation.net&#34;&gt;crackstation.net&lt;/a&gt; And we are lucky indeed:&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227032857926.png&#34; alt=&#34;image-20221227032857926&#34;&gt;&lt;/p&gt;
+&lt;p&gt;This is in line with the challenge lore and should give us the flag! Let&amp;rsquo;s start &lt;em&gt;TeaParty.exe&lt;/em&gt; and type &lt;em&gt;whothefuckisalice&lt;/em&gt;!&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;And then&amp;hellip;&lt;/strong&gt;
+&lt;strong&gt;&amp;hellip;nothing happens?!&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;This can&amp;rsquo;t be right, this looks so much like the correct solution it isn&amp;rsquo;t even funny. So, maybe those &lt;em&gt;Anti-Debugging&lt;/em&gt; measures are interfering somehow, even if we have more than a single core available and no debugger attached? Let&amp;rsquo;s modify the .Net assembly to not waste time with key scanning and hash comparison.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/dnSpy/dnSpy&#34;&gt;dnSpy&lt;/a&gt; is &lt;a href=&#34;https://github.com/icsharpcode/ILSpy&#34;&gt;ILSpy&lt;/a&gt; on steroids providing the reversing capabilities, but also:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Allows modification of the reversed code and rewriting the assembly (Isn&amp;rsquo;t that cool!?)&lt;/li&gt;
+&lt;li&gt;Allows attachment of a debugger to .Net executables, providing Visual Studio like debugging experience&lt;/li&gt;
+&lt;li&gt;Looks sleek and features a dark mode color scheme&lt;/li&gt;
+&lt;li&gt;Probably has a lot of more advanced functionality I don&amp;rsquo;t event basically understand&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;This comes with the drawbacks, that it doesn&amp;rsquo;t have a Linux native version available and isn&amp;rsquo;t actively developed and maintained anymore since December 2020, which keeps me from using it instead of &lt;a href=&#34;https://github.com/icsharpcode/ILSpy&#34;&gt;ILSpy&lt;/a&gt; by default.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227034440569.png&#34; alt=&#34;image-20221227034440569&#34;&gt;&lt;/p&gt;
+&lt;p&gt;As you see, the &lt;code&gt;Form1_Load&lt;/code&gt; function is already rewritten to concentrate on the absolutely necessary&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-csharp&#34; data-lang=&#34;csharp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; Form1_Load(&lt;span style=&#34;color:#66d9ef&#34;&gt;object&lt;/span&gt; sender, EventArgs e)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	TeaParty.InstallDriver(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;TeaParty&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;C:\\Program Files\\AliceInWonderlandTeaParty\\TeaParty.sys&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	TeaParty.GetFlag(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;whothefuckisalice&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;And that changes exactly nothing.&lt;/strong&gt; Still no flag.&lt;/p&gt;
+&lt;p&gt;Well, time to leave the comfort zone and get our hands dirty on the &lt;em&gt;TeaParty.sys&lt;/em&gt; device driver.&lt;/p&gt;
+&lt;h2 id=&#34;were-all-mad-here-whats-a-device-driver-anyway&#34;&gt;We&amp;rsquo;re All Mad Here: What&amp;rsquo;s a device driver anyway?&lt;/h2&gt;
+&lt;p&gt;To analyze the &lt;em&gt;TeaParty.sys&lt;/em&gt; in Ghidra, it is really helpful to import the &lt;em&gt;&lt;a href=&#34;https://github.com/0x6d696368/ghidra-data/blob/master/typeinfo/ntddk_64.gdt&#34;&gt;ntddk64&lt;/a&gt;&lt;/em&gt; symbols, as it will allow to use the needed Windows API types when recreating structs and types. I&amp;rsquo;ll spare you the detailed reversing process and just describe the recreated code path.&lt;/p&gt;
+&lt;p&gt;We start at the &lt;code&gt;entry&lt;/code&gt; function, which receives a pointer to a &lt;a href=&#34;https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_driver_object&#34;&gt;DRIVER_OBJECT&lt;/a&gt; struct and forwards it to another method I named &lt;code&gt;driverEntry&lt;/code&gt;.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;entry&lt;/span&gt;(PDRIVER_OBJECT driverObject)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;FUN_fffff80944e0502c&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;driverEntry&lt;/span&gt;(driverObject);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The &lt;code&gt;driverEntry&lt;/code&gt; function initializes an IO Device at &lt;code&gt;\Device\TeaParty&lt;/code&gt; and &lt;code&gt;\DosDevice\TeaParty&lt;/code&gt; (I think for legacy reasons). It then initializes the IRP Function Table, which maps functions to IRP operations. These are mostly defined to an almost empty NOP function, supposedly out of necessity. But the IRP function for &lt;em&gt;Device Control&lt;/em&gt; is defined to a rich function used to dispatch the IO Controls provided by the calls in our .Net program. There is also a short unload routine which does pretty much the expected, unloading the defined device.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;undefined8 &lt;span style=&#34;color:#a6e22e&#34;&gt;driverEntry&lt;/span&gt;(PDRIVER_OBJECT driverObject)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  _UNICODE_STRING deviceName;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  _UNICODE_STRING deviceAlias;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;DbgPrint&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Hello World!&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;RtlInitUnicodeString&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;deviceName,&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;Device&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;TeaParty&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;RtlInitUnicodeString&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;deviceAlias,&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;DosDevices&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;TeaParty&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;IoCreateDevice&lt;/span&gt;(driverObject,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;deviceName,FILE_DEVICE_UNKNOWN,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;\0&amp;#39;&lt;/span&gt;,&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;DEVICE_OBJECT);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;IoCreateSymbolicLink&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;deviceAlias,&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;deviceName);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#75715e&#34;&gt;/* IRP_MJ_CREATE */&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  driverObject&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;MajorFunction[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; driverNOP;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#75715e&#34;&gt;/* IRP_MJ_CLOSE */&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  driverObject&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;MajorFunction[IRP_MJ_CLOSE] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; driverNOP;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#75715e&#34;&gt;/* IRP_MJ_READ */&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  driverObject&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;MajorFunction[IRP_MJ_READ] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; driverNOP;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#75715e&#34;&gt;/* IRP_MJ_WRITE */&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  driverObject&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;MajorFunction[IRP_MJ_WRITE] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; driverNOP;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#75715e&#34;&gt;/* IRP_MJ_DEVICE_CONTROL */&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  driverObject&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;MajorFunction[IRP_MJ_DEVICE_CONTROL] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; driverDispatch;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  driverObject&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;DriverUnload &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; driverUnload;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The &lt;code&gt;driverDispatch&lt;/code&gt; function is where the magic happens. Let&amp;rsquo;s have a look and analyze it.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;] &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt_aes&lt;/span&gt;(PUCHAR param_1,ULONG param_2)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  NTSTATUS NVar1;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pbKeyObject) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pbIV) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pbOutput) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pauVar2) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pauVar3) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  uint local_res18 [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  uint local_res20 [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  uint local_58;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ULONG local_54;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  BCRYPT_HANDLE local_50;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  BCRYPT_KEY_HANDLE local_48 [&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  pbIV &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  local_50 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (BCRYPT_HANDLE)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  local_48[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (BCRYPT_KEY_HANDLE)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  local_res20[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  local_54 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  local_58 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  local_res18[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  pauVar3 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  pauVar2 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  NVar1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptOpenAlgorithmProvider&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;local_50,&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;AES&amp;#34;&lt;/span&gt;,(LPCWSTR)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  pbOutput &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pbIV;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  pbKeyObject &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pbIV;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; NVar1) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    NVar1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptGetProperty&lt;/span&gt;(local_50,&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ObjectLength&amp;#34;&lt;/span&gt;,(PUCHAR)&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;local_58,&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;,&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;local_54,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    pbIV &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pauVar2;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    pbOutput &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pauVar3;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    pbKeyObject &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; NVar1) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      pbKeyObject &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#a6e22e&#34;&gt;ExAllocatePoolWithTag&lt;/span&gt;(PagedPool,(ulonglong)local_58,&lt;span style=&#34;color:#ae81ff&#34;&gt;0xaabbccdd&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (pbKeyObject &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        NVar1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptGetProperty&lt;/span&gt;(local_50,&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;BlockLength&amp;#34;&lt;/span&gt;,(PUCHAR)local_res18,&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;,&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;local_54,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; ((&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; NVar1) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&amp;amp;&lt;/span&gt; (local_res18[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x11&lt;/span&gt;)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          pbIV &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                 &lt;span style=&#34;color:#a6e22e&#34;&gt;ExAllocatePoolWithTag&lt;/span&gt;(PagedPool,(ulonglong)local_res18[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;],&lt;span style=&#34;color:#ae81ff&#34;&gt;0xaabbccdd&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (pbIV &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#a6e22e&#34;&gt;memmove&lt;/span&gt;(pbIV,&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;AES_IV,(ulonglong)local_res18[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            NVar1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptSetProperty&lt;/span&gt;(local_50,&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ChainingMode&amp;#34;&lt;/span&gt;,(PUCHAR)&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ChainingModeCBC&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ae81ff&#34;&gt;0x20&lt;/span&gt;,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; NVar1) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;              NVar1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptGenerateSymmetricKey&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                                (local_50,local_48,(PUCHAR)pbKeyObject,local_58,&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;AES_KEY,&lt;span style=&#34;color:#ae81ff&#34;&gt;0x20&lt;/span&gt;,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;              &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; NVar1) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                NVar1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptDecrypt&lt;/span&gt;(local_48[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;],param_1,param_2,(&lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;,(PUCHAR)pbIV,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                                      local_res18[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;],(PUCHAR)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,local_res20,&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; NVar1) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  pbOutput &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                             &lt;span style=&#34;color:#a6e22e&#34;&gt;ExAllocatePoolWithTag&lt;/span&gt;(PagedPool,(ulonglong)local_res20[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;],&lt;span style=&#34;color:#ae81ff&#34;&gt;0xaabbccdd&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  &lt;span style=&#34;color:#a6e22e&#34;&gt;FUN_fffff80944e01c00&lt;/span&gt;(pbOutput,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,(ulonglong)local_res20[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (pbOutput &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptDecrypt&lt;/span&gt;(local_48[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;],param_1,param_2,(&lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;,(PUCHAR)pbIV,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                                  local_res18[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;],(PUCHAR)pbOutput,local_res20[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;],local_res20,&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;              }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (local_50 &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; (BCRYPT_ALG_HANDLE)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptCloseAlgorithmProvider&lt;/span&gt;(local_50,&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (local_48[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; (BCRYPT_KEY_HANDLE)&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;BCryptDestroyKey&lt;/span&gt;(local_48[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (pbKeyObject &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;ExFreePoolWithTag&lt;/span&gt;(pbKeyObject,&lt;span style=&#34;color:#ae81ff&#34;&gt;0xaabbccdd&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (pbIV &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;ExFreePoolWithTag&lt;/span&gt;(pbIV,&lt;span style=&#34;color:#ae81ff&#34;&gt;0xaabbccdd&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; pbOutput;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;NTSTATUS &lt;span style=&#34;color:#a6e22e&#34;&gt;driverDispatch&lt;/span&gt;(PDEVICE_OBJECT deviceObject,PIRP irp)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  _IO_STACK_LOCATION &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;p_Var1;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;puVar2;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uVar3;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uVar4;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uVar5;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  NTSTATUS NVar6;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  uint newpos;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;size_t&lt;/span&gt; _Size;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  longlong bufpos;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined auStack_98 [&lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;char&lt;/span&gt; regkey_val [&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined local_70 [&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_68;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_64;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined local_60 [&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_58;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_54;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined buf [&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_48;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_44;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined local_40 [&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_38;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  undefined4 uStack_34;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;char&lt;/span&gt; key [&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ulonglong local_10;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ULONG ioctl;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  PCSTR key_in;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  uint keypos;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pResult) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  local_10 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; DAT_fffff80944e03000 &lt;span style=&#34;color:#f92672&#34;&gt;^&lt;/span&gt; (ulonglong)auStack_98;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  p_Var1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (irp&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Tail).Overlay.field3_0x30.field1_0x10.CurrentStackLocation;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  regkey_val &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#66d9ef&#34;&gt;char&lt;/span&gt;  [&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;])&lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  _buf &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ZEXT816&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  _local_40 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ZEXT816&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  _local_70 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ZEXT816&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  _local_60 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ZEXT816&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#75715e&#34;&gt;/* This should retrieve 0xa11ceb0b */&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;read_registry_key&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;Registry&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;Machine&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;SOFTWARE&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\\&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;AliceInWonderlandTeaParty&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#e6db74&#34;&gt;L&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;CareForTea&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    regkey_val);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  pResult &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; DECRYPTED_FLAG;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ioctl &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (p_Var1&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Parameters).QueryDirectory.FileIndex;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; regkey_val;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (ioctl &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; IOCTL_GETFLAG1) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    key_in &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(PCSTR &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)((longlong)&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;irp&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;AssociatedIrp &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;DbgPrint&lt;/span&gt;(key_in);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    _Size &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0xffffffffffffffff&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    _AES_KEY &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ZEXT816&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    _DAT_fffff80944e03068 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ZEXT816&lt;/span&gt;(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;do&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      _Size &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; _Size &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (key_in[_Size] &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;\0&amp;#39;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;memmove&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;AES_KEY,key_in,_Size);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    DECRYPTED_FLAG &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;decrypt_aes&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;ENCRYPTED_FLAG,&lt;span style=&#34;color:#ae81ff&#34;&gt;0x30&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;DbgPrint&lt;/span&gt;((PCSTR)DECRYPTED_FLAG);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (ioctl &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; IOCTL_GETFLAG2) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt;)((longlong)&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;(irp&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;AssociatedIrp).MasterIrp &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    (p_Var1&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Parameters).Read.Key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar3 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)((longlong)&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pResult &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar4 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)((longlong)&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pResult &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar5 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)((longlong)&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pResult &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0xc&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;puVar2 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pResult;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar3;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar4;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar5;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar3 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)(pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar4 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)(pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar5 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)(pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0xc&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar3;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;6&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar4;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar5;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar3 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)(pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar4 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)(pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    uVar5 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)(pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0xc&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(undefined4 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;9&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar3;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;10&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar4;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    puVar2[&lt;span style=&#34;color:#ae81ff&#34;&gt;0xb&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uVar5;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;ExFreePoolWithTag&lt;/span&gt;(pResult,&lt;span style=&#34;color:#ae81ff&#34;&gt;0xaabbccdd&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (ioctl &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; IOCTL_GETHASH1) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      pResult &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])((longlong)&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;irp&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;AssociatedIrp &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      (p_Var1&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Parameters).Read.Key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x20&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      bufpos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      keypos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#66d9ef&#34;&gt;do&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        newpos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; keypos &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#75715e&#34;&gt;/* &amp;#34;&amp;amp;3&amp;#34; == &amp;#34;%4&amp;#34; */&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        buf[bufpos] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key[keypos &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;^&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;ENCRYPTED_HASH1)[bufpos];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        bufpos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bufpos &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        keypos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; newpos;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      } &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; ((&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt;)newpos &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x20&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      local_70._0_4_ &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; buf._0_4_;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      local_70._4_4_ &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; buf._4_4_;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      uStack_68 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uStack_48;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      uStack_64 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uStack_44;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      local_60._0_4_ &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; local_40._0_4_;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      local_60._4_4_ &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; local_40._4_4_;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      uStack_58 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uStack_38;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      uStack_54 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; uStack_34;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (ioctl &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; IOCTL_GETHASH2) &lt;span style=&#34;color:#66d9ef&#34;&gt;goto&lt;/span&gt; LAB_fffff80944e01469;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      pResult &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;undefined&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt;) [&lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;])((longlong)&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;irp&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;AssociatedIrp &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      (p_Var1&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Parameters).Read.Key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x20&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      bufpos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      keypos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#66d9ef&#34;&gt;do&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        newpos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; keypos &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        local_70[bufpos] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; key[keypos &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;^&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;ENCRYPTED_HASH2)[bufpos];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        bufpos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; bufpos &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        keypos &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; newpos;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      } &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; ((&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt;)newpos &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x20&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pResult &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CONCAT412&lt;/span&gt;(uStack_64,&lt;span style=&#34;color:#a6e22e&#34;&gt;CONCAT48&lt;/span&gt;(uStack_68,&lt;span style=&#34;color:#a6e22e&#34;&gt;CONCAT44&lt;/span&gt;(local_70._4_4_,local_70._0_4_)));
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    pResult[&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CONCAT412&lt;/span&gt;(uStack_54,&lt;span style=&#34;color:#a6e22e&#34;&gt;CONCAT48&lt;/span&gt;(uStack_58,&lt;span style=&#34;color:#a6e22e&#34;&gt;CONCAT44&lt;/span&gt;(local_60._4_4_,local_60._0_4_)));
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;LAB_fffff80944e01469:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  (irp&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;IoStatus).field0_0x0.Status &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  (irp&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;IoStatus).Information &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x30&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;IofCompleteRequest&lt;/span&gt;(irp,&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;\0&amp;#39;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  NVar6 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;FUN_fffff80944e017a0&lt;/span&gt;(local_10 &lt;span style=&#34;color:#f92672&#34;&gt;^&lt;/span&gt; (ulonglong)auStack_98);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; NVar6;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The &lt;code&gt;driverDispatch&lt;/code&gt; function basically does the following:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Read a registry value at &lt;em&gt;HKEY_LOCAL_MACHINE\SOFTWARE\AliceInWonderlandTeaParty\CareForTea&lt;/em&gt; as a key&lt;/li&gt;
+&lt;li&gt;Parse IOCtl value from IRP and switch code path accordingly
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;IOCTL_GETFLAG1&lt;/code&gt;: 2236416 (0x222000)
+&lt;ol&gt;
+&lt;li&gt;Read the encrypted flag 0x74F814897D5AC9C05301FD9922C3AC84FDFB4312FF39AB49EE39E580C1F5160C&lt;/li&gt;
+&lt;li&gt;Read the key from user provided memory&lt;/li&gt;
+&lt;li&gt;Looking at the &lt;code&gt;decrypt_aes&lt;/code&gt; function (omitted for brevity) we can look at the code and used strings to infer the used initialization vector and algorithm: It&amp;rsquo;s AES-CBC with an IV of concatenated hex values from 0x00 to 0x0F. The key needs to be provided as 32 byte string.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;IOCTL_GETFLAG2&lt;/code&gt;: 2236420 (0x222004)
+&lt;ol&gt;
+&lt;li&gt;Write the in &lt;code&gt;IOCTL_GETFLAG1&lt;/code&gt; calculated value to the IRP struct&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;IOCTL_GETHASH1&lt;/code&gt; : 2236424 (0x222008)
+&lt;ol&gt;
+&lt;li&gt;Read the encrypted hash 0x39D32A983EDF7AC36EDA25C03F8F79993DDE2B99328D78C73CDE7FC26ADE79C0&lt;/li&gt;
+&lt;li&gt;Do a byte wise XOR operation on this encrypted hash with the cyclic key retrieved from the registry.&lt;/li&gt;
+&lt;li&gt;Return the result via IRP struct&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;IOCTL_GETHASH2&lt;/code&gt; : 2236428 (0x22200c)
+&lt;ol&gt;
+&lt;li&gt;Read the encrypted hash 0x32892DC73AD37EC2328E29943DD27AC33ADD2AC039D97FC03D8E7E9238DC7D95&lt;/li&gt;
+&lt;li&gt;Do a byte wise XOR operation on this encrypted hash with the cyclic key retrieved from the registry.&lt;/li&gt;
+&lt;li&gt;Return the result via IRP struct&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Return the result buffer via IRP struct&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;So, how do we get the value of the registry key &lt;em&gt;HKEY_LOCAL_MACHINE\SOFTWARE\AliceInWonderlandTeaParty\CareForTea&lt;/em&gt;? Volatility allows us to search the registry keys opened during memory image dump:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;❯ vol -f Windows10x64_AliceInWonderland-b4365e16.vmem windows.registry.printkey --key &amp;#34;AliceInWonderlandTeaParty&amp;#34; --recurse
+Volatility 3 Framework 2.0.1
+Progress:  100.00		PDB scanning finished                        
+Last Write Time	Hive Offset	Type	Key	Name	Data	Volatile
+
+-	0xde88d0023000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d003d000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d0078000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d77e2000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6119000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7dc6000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7d21000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7d06000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d7bae000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d716f000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6a54000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d692b000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6335000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d62ff000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d6177000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d606c000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d5ff3000	Key	?\AliceInWonderlandTeaParty	-		-
+-	0xde88d0c29000	Key	?\AliceInWonderlandTeaParty	-		-
+2022-09-02 22:32:25.000000 	0xde88d0ae4000	REG_DWORD	\SystemRoot\System32\Config\SOFTWARE\AliceInWonderlandTeaParty	CareForTea	2703026955	False
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;It is the DWORD (4 byte) 2703026955, which looks unsuspicious until you convert it to hex: &lt;strong&gt;0xa11ceb0b&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;We can verify our suspected MD5 hash &lt;em&gt;286954fbe19a4de865789fdf75cca5ea&lt;/em&gt; is the result of &lt;code&gt;IOCTL_GETHASH1&lt;/code&gt; and obtain &lt;em&gt;9b1f18bc9e5569fb166a22ca6eb337a4&lt;/em&gt; as result for &lt;code&gt;IOCTL_GETHASH2&lt;/code&gt; with &lt;a href=&#34;https://gchq.github.io/CyberChef/#recipe=Fork(&#39;%5C%5Cn&#39;,&#39;%5C%5Cn&#39;,false)From_Hex(&#39;None&#39;)XOR(%7B&#39;option&#39;:&#39;Hex&#39;,&#39;string&#39;:&#39;0beb1ca1&#39;%7D,&#39;Standard&#39;,false)&amp;amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMAozMjg5MkRDNzNBRDM3RUMyMzI4RTI5OTQzREQyN0FDMzNBREQyQUMwMzlEOTdGQzAzRDhFN0U5MjM4REM3RDk1&#34;&gt;CyberChef&lt;/a&gt;. If we were really confident about our guess we could even have &lt;a href=&#34;https://gchq.github.io/CyberChef/#recipe=From_Hex(&#39;None&#39;)XOR(%7B&#39;option&#39;:&#39;Latin1&#39;,&#39;string&#39;:&#39;286954fbe19a4de865789fdf75cca5ea&#39;%7D,&#39;Standard&#39;,false)Swap_endianness(&#39;Raw&#39;,4,false)To_Hex(&#39;Space&#39;,4)&amp;amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMA&#34;&gt;reversed the encryption key&lt;/a&gt; instead of getting it from the memory dump!&lt;/p&gt;
+&lt;p&gt;Although not necessary we tried to reverse the hash &lt;em&gt;9b1f18bc9e5569fb166a22ca6eb337a4&lt;/em&gt;. It wasn&amp;rsquo;t available in any rainbow table we found, but we found the corresponding cleartext &lt;em&gt;WHOTHEFUCKISALICE&lt;/em&gt; by chance. Looks like the passcode is meant to be case insensitive but case consistent.&lt;/p&gt;
+&lt;p&gt;Now we have everything we need to get the flag and write a little python script:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; pwn &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;h1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; unhex(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;39D32A983EDF7AC36EDA25C03F8F79993DDE2B99328D78C73CDE7FC26ADE79C0&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(xor(h1, p32(&lt;span style=&#34;color:#ae81ff&#34;&gt;0xA11CEB0B&lt;/span&gt;)))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 286954fbe19a4de865789fdf75cca5ea&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;h2 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; unhex(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;32892DC73AD37EC2328E29943DD27AC33ADD2AC039D97FC03D8E7E9238DC7D95&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(xor(h2, p32(&lt;span style=&#34;color:#ae81ff&#34;&gt;0xA11CEB0B&lt;/span&gt;)))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 9b1f18bc9e5569fb166a22ca6eb337a4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;passcode &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;whothefuckisalice&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;key &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; passcode&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ljust(&lt;span style=&#34;color:#ae81ff&#34;&gt;32&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\x00&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ciphertext &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; unhex(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;74F814897D5AC9C05301FD9922C3AC84FDFB4312FF39AB49EE39E580C1F5160C&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;iv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; unhex(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;00102030405060708090A0B0C0D0E0F&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; Crypto.Cipher &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; AES
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(key)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;aes &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new(key, AES&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;MODE_CBC, iv)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(aes&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;decrypt(ciphertext))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# INTENT{0ff_w1th_7h31r_H34ds}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;off-with-their-heads-disable-windows-security-features&#34;&gt;Off With Their Heads: Disable Windows Security Features&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;Now, we already got the flag through reverse engineering the device driver&amp;hellip; but why didn&amp;rsquo;t it work like advertised? Why didn&amp;rsquo;t we get the flag when running the executable?&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Turns out, there is a thing calles &lt;em&gt;Driver Signature Enforcement&lt;/em&gt; that prevents loading device not signed by Microsoft. This may indeed be a smart move generally, but as our &lt;em&gt;TeaParty.sys&lt;/em&gt; is not signed, we have to disable it.&lt;/p&gt;
+&lt;p&gt;The failed signature and integrity checks are written to the Windows event log and can be viewed with the &lt;em&gt;Event Viewer&lt;/em&gt; in the &lt;em&gt;Audit&lt;/em&gt; log category.&lt;/p&gt;
+&lt;p&gt;In a &lt;em&gt;Command Prompt (cmd.exe)&lt;/em&gt;, started with System privileges (Right click, run as administrator), execute:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;bcdedit -set TESTSIGNING OFF
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;and restart Windows. After a reboot, there should be the following &lt;em&gt;Test Mode&lt;/em&gt; watermark visible.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227023833349.png&#34; alt=&#34;image-20221227023833349&#34;&gt;&lt;/p&gt;
+&lt;p&gt;Make sure &lt;em&gt;Virus &amp;amp;  Threat Protection&lt;/em&gt; is still off and run &lt;em&gt;TeaParty.exe&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Et Voila:&lt;/strong&gt; When we type &lt;em&gt;whothefuckisalice&lt;/em&gt;, the &lt;strong&gt;flag&lt;/strong&gt; appears!&lt;/p&gt;
+&lt;p&gt;c&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227024123467.png&#34; alt=&#34;image-20221227024123467&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;And we even could get it without fully reversing &lt;em&gt;TeaParty.sys&lt;/em&gt;, inferring the password from the process memory and modifying the .Net assembly like we tried above. Neat!&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;leaving-wonderland-summary&#34;&gt;Leaving Wonderland: Summary&lt;/h2&gt;
+&lt;p&gt;I really liked this challenge as it needed quite a broad skill set to obtain the flag and introduced a couple of techniques and tools one could use:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Memory Dump Analysis (&lt;a href=&#34;https://github.com/volatilityfoundation/volatility3&#34;&gt;volatility&lt;/a&gt;)&lt;/li&gt;
+&lt;li&gt;.Net Assembly Analysis and Modification (&lt;a href=&#34;https://github.com/dnSpy/dnSpy&#34;&gt;DNSpy&lt;/a&gt;)&lt;/li&gt;
+&lt;li&gt;Hash cracking using rainbow tables (&lt;a href=&#34;https://crackstation.net&#34;&gt;crackstation.net&lt;/a&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://www-user.tu-chemnitz.de/~heha/oney_wdm/ch09d.htm&#34;&gt;Windows Driver Model API I/O Control&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;x64 Windows PE Binary Reversing (&lt;a href=&#34;https://ghidra-sre.org/&#34;&gt;Ghidra&lt;/a&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://answers.microsoft.com/en-us/windows/forum/all/windows-10-pro-test-mode/27b555ca-852a-44c7-b42f-c84b8eec06f2&#34;&gt;Windows Driver Signature Enforcement&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;I really enjoyed this challenge and was really elated to be able to solve this challenge just at the last our of INTENT CTF - of course with generous help of my team mates :)&lt;/p&gt;
+&lt;p&gt;Kudos to &lt;a href=&#34;https://twitter.com/rotemsalinas&#34;&gt;@rotemsalinas&lt;/a&gt; for this great challenge!&lt;/p&gt;
+</content>
+    </item>
+    
+  </channel>
+</rss>
