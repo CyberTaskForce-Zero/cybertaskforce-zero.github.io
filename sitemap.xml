@@ -3,7 +3,19 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>/</loc>
-    <lastmod>2022-12-27T19:10:24+01:00</lastmod>
+    <lastmod>2023-01-11T19:51:16+01:00</lastmod>
+  </url><url>
+    <loc>/posts/</loc>
+    <lastmod>2023-01-11T19:51:16+01:00</lastmod>
+  </url><url>
+    <loc>/tags/pwn/</loc>
+    <lastmod>2023-01-11T19:51:16+01:00</lastmod>
+  </url><url>
+    <loc>/posts/realworldctf5-teewars/</loc>
+    <lastmod>2023-01-11T19:51:16+01:00</lastmod>
+  </url><url>
+    <loc>/tags/</loc>
+    <lastmod>2023-01-11T19:51:16+01:00</lastmod>
   </url><url>
     <loc>/tags/forensic/</loc>
     <lastmod>2022-12-27T19:10:24+01:00</lastmod>
@@ -11,13 +23,7 @@
     <loc>/posts/intentctf22-forensic-tea-party/</loc>
     <lastmod>2022-12-27T19:10:24+01:00</lastmod>
   </url><url>
-    <loc>/posts/</loc>
-    <lastmod>2022-12-27T19:10:24+01:00</lastmod>
-  </url><url>
     <loc>/tags/reversing/</loc>
-    <lastmod>2022-12-27T19:10:24+01:00</lastmod>
-  </url><url>
-    <loc>/tags/</loc>
     <lastmod>2022-12-27T19:10:24+01:00</lastmod>
   </url><url>
     <loc>/posts/csr22-scramble/</loc>
