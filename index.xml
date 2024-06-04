@@ -6,7 +6,7 @@
     <description>Recent content on CyberTaskForce Zero</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <copyright>© 2021-2022 CyberTaskForce Zero</copyright>
+    <copyright>© 2021-2024 CyberTaskForce Zero</copyright>
     <lastBuildDate>Wed, 05 Apr 2023 18:42:00 +0200</lastBuildDate><atom:link href="/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Hack-A-Sat 4: Magic Space Bussin</title>
@@ -3674,12 +3674,12 @@ Because the premaster secret is send encrypted, the session key is only known to
       
       <guid>/about/</guid>
       <description>About the taskforce We&amp;rsquo;re a small CTF team from Brunswick in Germany playing CTFs together since 2018.
-The group consist of a mix of student and non-student folks studying at TU Braunschweig or hanging out at the local hacker space Stratum 0.
+The group consist of a mix of student and non-student folks studying at TU Braunschweig or hanging out at the local hacker space Stratum 0. We meet regularly every second tuesday at 18 o&amp;rsquo;clock in the space.
 #ctf_zero:stratum0.org</description>
       <content>&lt;h1 id=&#34;about-the-taskforce&#34;&gt;About the taskforce&lt;/h1&gt;
 &lt;p&gt;We&amp;rsquo;re a small CTF team from Brunswick in Germany playing CTFs together since 2018.&lt;/p&gt;
 &lt;p&gt;The group consist of a mix of student and non-student folks studying
-at &lt;a href=&#34;https://www.tu-braunschweig.de/&#34;&gt;TU Braunschweig&lt;/a&gt; or hanging out at the local hacker space &lt;a href=&#34;https://stratum0.org&#34;&gt;Stratum 0&lt;/a&gt;.&lt;/p&gt;
+at &lt;a href=&#34;https://www.tu-braunschweig.de/&#34;&gt;TU Braunschweig&lt;/a&gt; or hanging out at the local hacker space &lt;a href=&#34;https://stratum0.org&#34;&gt;Stratum 0&lt;/a&gt;. We meet regularly every second tuesday at 18 o&amp;rsquo;clock in the space.&lt;/p&gt;
 &lt;p&gt;&lt;a href=&#34;https://matrix.to/#/!uckvhCjNvRXZSATRci:stratum0.org?via=stratum0.org&amp;amp;via=matrix.org&amp;amp;via=entropia.de&#34;&gt;#ctf_zero:stratum0.org&lt;/a&gt;&lt;/p&gt;
 </content>
     </item>
