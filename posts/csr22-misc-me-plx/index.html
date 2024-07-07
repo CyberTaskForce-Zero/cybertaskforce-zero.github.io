@@ -12,6 +12,9 @@
 <link rel="canonical" href="/posts/csr22-misc-me-plx/" />
 
 
+  
+
+
 
 
 <link rel="stylesheet" href="/assets/style.css">
@@ -144,7 +147,7 @@
         <h4 id="description">Description:<a href="#description" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
 <p>I like to sniff buses.</p>
 <p>Challenge author: Skipper|RedRocket</p>
-<p><img src="/img/csr22_bus_sniffer.png" alt=""></p>
+<p><img src="/img/csr22_bus_sniffer.png"></p>
 <p>We get:</p>
 <pre tabindex="0"><code>90K recording.sr
 </code></pre><p><em>one <code>unzip</code> later</em></p>
@@ -180,7 +183,7 @@ probe7=D6
 probe8=D7
 unitsize=1
 </code></pre><p>View it in PulseView (GUI of sigrok)</p>
-<p><img src="/img/csr22_pulse.png" alt=""></p>
+<p><img src="/img/csr22_pulse.png"></p>
 <p>D7 looks like a clock pulse.
 When googling &ldquo;clock bus protocol&rdquo; <strong>I²C</strong> seems to pop up quite often.
 I try adding a decoder using the sigrok-cli:</p>
@@ -199,7 +202,7 @@ i2c-1: Data write: 5F
 </code></pre><p>After converting the bytes to ascii we see:
 <code>init_prog_addr__77_1_2_01șCSR{i2c_d0_b3_v3ry_31337}_|&gt;|&gt;|&gt;򀀀</code></p>
 <p>Yeah!</p>
-<p><img src="/img/csr22_doggo.png" alt=""></p>
+<p><img src="/img/csr22_doggo.png"></p>
 
       </div></div>
 

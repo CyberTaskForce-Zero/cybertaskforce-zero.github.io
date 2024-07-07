@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>misc on CyberTaskForce Zero</title>
+    <title>Misc on CyberTaskForce Zero</title>
     <link>/tags/misc/</link>
-    <description>Recent content in misc on CyberTaskForce Zero</description>
+    <description>Recent content in Misc on CyberTaskForce Zero</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language>
+    <language>en</language>
     <copyright>© 2021-2024 CyberTaskForce Zero</copyright>
     <lastBuildDate>Sun, 09 Oct 2022 00:20:13 +0100</lastBuildDate><atom:link href="/tags/misc/index.xml" rel="self" type="application/rss+xml" />
     <item>
@@ -266,7 +266,7 @@ We get:
       <content>&lt;h4 id=&#34;description&#34;&gt;Description:&lt;/h4&gt;
 &lt;p&gt;I like to sniff buses.&lt;/p&gt;
 &lt;p&gt;Challenge author: Skipper|RedRocket&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/csr22_bus_sniffer.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_bus_sniffer.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;We get:&lt;/p&gt;
 &lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;90K recording.sr
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;em&gt;one &lt;code&gt;unzip&lt;/code&gt; later&lt;/em&gt;&lt;/p&gt;
@@ -302,7 +302,7 @@ probe7=D6
 probe8=D7
 unitsize=1
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;View it in PulseView (GUI of sigrok)&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/csr22_pulse.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_pulse.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;D7 looks like a clock pulse.
 When googling &amp;ldquo;clock bus protocol&amp;rdquo; &lt;strong&gt;I²C&lt;/strong&gt; seems to pop up quite often.
 I try adding a decoder using the sigrok-cli:&lt;/p&gt;
@@ -321,7 +321,7 @@ i2c-1: Data write: 5F
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;After converting the bytes to ascii we see:
 &lt;code&gt;init_prog_addr__77_1_2_01șCSR{i2c_d0_b3_v3ry_31337}_|&amp;gt;|&amp;gt;|&amp;gt;򀀀&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;Yeah!&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/csr22_doggo.png&#34; alt=&#34;&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/img/csr22_doggo.png&#34;&gt;&lt;/p&gt;
 </content>
     </item>
     

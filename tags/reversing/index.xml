@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>reversing on CyberTaskForce Zero</title>
+    <title>Reversing on CyberTaskForce Zero</title>
     <link>/tags/reversing/</link>
-    <description>Recent content in reversing on CyberTaskForce Zero</description>
+    <description>Recent content in Reversing on CyberTaskForce Zero</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language>
+    <language>en</language>
     <copyright>© 2021-2024 CyberTaskForce Zero</copyright>
     <lastBuildDate>Tue, 27 Dec 2022 19:10:24 +0100</lastBuildDate><atom:link href="/tags/reversing/index.xml" rel="self" type="application/rss+xml" />
     <item>
@@ -183,7 +183,7 @@ file.0xa08ce34c31c0.0xa08ce34fb1b0.DataSectionObject.TeaParty.exe.dat:  PE32 exe
 file.0xa08ce38c74b0.0xa08ce2ebde50.DataSectionObject.TeaParty.sys.dat:  PE32+ executable (native) x86-64, for MS Windows
 file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ executable (native) x86-64, for MS Windows
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;So let&amp;rsquo;s rename the &lt;code&gt;dat&lt;/code&gt;s to their original filenames and fire up &lt;a href=&#34;https://github.com/icsharpcode/ILSpy&#34;&gt;ILSpy&lt;/a&gt; and load &lt;code&gt;TeaParty.exe&lt;/code&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221217193851517.png&#34; alt=&#34;image-20221217193851517&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt=&#34;image-20221217193851517&#34; src=&#34;/img/intentctf22-forensic-tea-party/image-20221217193851517.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;We can reverse the application code flow out of the &lt;code&gt;TeaParty&lt;/code&gt; class (excerpt - missing code is &lt;em&gt;kernel32.dll&lt;/em&gt;, &lt;em&gt;user32.dll&lt;/em&gt;, or &lt;em&gt;advapi32.dll&lt;/em&gt; windows API)&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-csharp&#34; data-lang=&#34;csharp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; CalculateMd5HexDigest(&lt;span style=&#34;color:#66d9ef&#34;&gt;string&lt;/span&gt; data)
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
@@ -369,7 +369,7 @@ file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ ex
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	}
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;We also can dump the XOR encrypted &lt;code&gt;TeaParty.sys&lt;/code&gt;, although we don&amp;rsquo;t really need to as we already have extracted the unencrypted version out of the memory dump.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221226215851318.png&#34; alt=&#34;image-20221226215851318&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt=&#34;image-20221226215851318&#34; src=&#34;/img/intentctf22-forensic-tea-party/image-20221226215851318.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;So, we can infer:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;On Startup, &lt;code&gt;TeaParty.sys&lt;/code&gt; is decoded (XOR with 0xAA) and copied to &lt;code&gt;C:\Program Files\AliceInWonderlandTeaParty\TeaParty.sys&lt;/code&gt;&lt;/li&gt;
@@ -388,7 +388,7 @@ file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ ex
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;When running &lt;code&gt;TeaParty.exe&lt;/code&gt;we are greeted with a GIF image from Disney&amp;rsquo;s Alice in Wonderland:&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221226223154580.png&#34; alt=&#34;image-20221226223154580&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt=&#34;image-20221226223154580&#34; src=&#34;/img/intentctf22-forensic-tea-party/image-20221226223154580.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;So, the interesting bits - Hashes and flag - are hidden in the &lt;em&gt;TeaParty.sys&lt;/em&gt; device driver and are queried from the device at runtime.&lt;/p&gt;
 &lt;h2 id=&#34;drowning-in-my-own-tears-retrieve-the-flag-without-reverse-engineering-the-driver&#34;&gt;Drowning In My Own Tears: Retrieve the Flag Without Reverse Engineering the Driver?&lt;/h2&gt;
 &lt;p&gt;Being a bit intimidated by the outlook of having to reverse a windows driver and keeping the hint about &lt;em&gt;rainbow tables&lt;/em&gt; in mind, I thought about staying in my comfort zone and just reversing one of the 2 hashes supplied by the &lt;code&gt;GetHash1&lt;/code&gt;and &lt;code&gt;GetHash2&lt;/code&gt; functions.&lt;/p&gt;
@@ -409,7 +409,7 @@ file.0xa08ce38c74b0.0xa08ce3537de0.ImageSectionObject.TeaParty.sys.img: PE32+ ex
 acd76752011afb91f5ca6f707066b350
 f5c18c5029e778b383c1ec34f156cf6b
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Let&amp;rsquo;s feed those hashes into &lt;a href=&#34;https://crackstation.net&#34;&gt;crackstation.net&lt;/a&gt; And we are lucky indeed:&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227032857926.png&#34; alt=&#34;image-20221227032857926&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt=&#34;image-20221227032857926&#34; src=&#34;/img/intentctf22-forensic-tea-party/image-20221227032857926.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;This is in line with the challenge lore and should give us the flag! Let&amp;rsquo;s start &lt;em&gt;TeaParty.exe&lt;/em&gt; and type &lt;em&gt;whothefuckisalice&lt;/em&gt;!&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;And then&amp;hellip;&lt;/strong&gt;
 &lt;strong&gt;&amp;hellip;nothing happens?!&lt;/strong&gt;&lt;/p&gt;
@@ -422,7 +422,7 @@ f5c18c5029e778b383c1ec34f156cf6b
 &lt;li&gt;Probably has a lot of more advanced functionality I don&amp;rsquo;t event basically understand&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;This comes with the drawbacks, that it doesn&amp;rsquo;t have a Linux native version available and isn&amp;rsquo;t actively developed and maintained anymore since December 2020, which keeps me from using it instead of &lt;a href=&#34;https://github.com/icsharpcode/ILSpy&#34;&gt;ILSpy&lt;/a&gt; by default.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227034440569.png&#34; alt=&#34;image-20221227034440569&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt=&#34;image-20221227034440569&#34; src=&#34;/img/intentctf22-forensic-tea-party/image-20221227034440569.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;As you see, the &lt;code&gt;Form1_Load&lt;/code&gt; function is already rewritten to concentrate on the absolutely necessary&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-csharp&#34; data-lang=&#34;csharp&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; Form1_Load(&lt;span style=&#34;color:#66d9ef&#34;&gt;object&lt;/span&gt; sender, EventArgs e)
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
@@ -738,7 +738,7 @@ Last Write Time	Hive Offset	Type	Key	Name	Data	Volatile
 -	0xde88d0c29000	Key	?\AliceInWonderlandTeaParty	-		-
 2022-09-02 22:32:25.000000 	0xde88d0ae4000	REG_DWORD	\SystemRoot\System32\Config\SOFTWARE\AliceInWonderlandTeaParty	CareForTea	2703026955	False
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;It is the DWORD (4 byte) 2703026955, which looks unsuspicious until you convert it to hex: &lt;strong&gt;0xa11ceb0b&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;We can verify our suspected MD5 hash &lt;em&gt;286954fbe19a4de865789fdf75cca5ea&lt;/em&gt; is the result of &lt;code&gt;IOCTL_GETHASH1&lt;/code&gt; and obtain &lt;em&gt;9b1f18bc9e5569fb166a22ca6eb337a4&lt;/em&gt; as result for &lt;code&gt;IOCTL_GETHASH2&lt;/code&gt; with &lt;a href=&#34;https://gchq.github.io/CyberChef/#recipe=Fork(&#39;%5C%5Cn&#39;,&#39;%5C%5Cn&#39;,false)From_Hex(&#39;None&#39;)XOR(%7B&#39;option&#39;:&#39;Hex&#39;,&#39;string&#39;:&#39;0beb1ca1&#39;%7D,&#39;Standard&#39;,false)&amp;amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMAozMjg5MkRDNzNBRDM3RUMyMzI4RTI5OTQzREQyN0FDMzNBREQyQUMwMzlEOTdGQzAzRDhFN0U5MjM4REM3RDk1&#34;&gt;CyberChef&lt;/a&gt;. If we were really confident about our guess we could even have &lt;a href=&#34;https://gchq.github.io/CyberChef/#recipe=From_Hex(&#39;None&#39;)XOR(%7B&#39;option&#39;:&#39;Latin1&#39;,&#39;string&#39;:&#39;286954fbe19a4de865789fdf75cca5ea&#39;%7D,&#39;Standard&#39;,false)Swap_endianness(&#39;Raw&#39;,4,false)To_Hex(&#39;Space&#39;,4)&amp;amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMA&#34;&gt;reversed the encryption key&lt;/a&gt; instead of getting it from the memory dump!&lt;/p&gt;
+&lt;p&gt;We can verify our suspected MD5 hash &lt;em&gt;286954fbe19a4de865789fdf75cca5ea&lt;/em&gt; is the result of &lt;code&gt;IOCTL_GETHASH1&lt;/code&gt; and obtain &lt;em&gt;9b1f18bc9e5569fb166a22ca6eb337a4&lt;/em&gt; as result for &lt;code&gt;IOCTL_GETHASH2&lt;/code&gt; with &lt;a href=&#34;https://gchq.github.io/CyberChef/#recipe=Fork(&#39;%5C%5Cn&#39;,&#39;%5C%5Cn&#39;,false)From_Hex(&#39;None&#39;)XOR(%7B&#39;option&#39;:&#39;Hex&#39;,&#39;string&#39;:&#39;0beb1ca1&#39;%7D,&#39;Standard&#39;,false)&amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMAozMjg5MkRDNzNBRDM3RUMyMzI4RTI5OTQzREQyN0FDMzNBREQyQUMwMzlEOTdGQzAzRDhFN0U5MjM4REM3RDk1&#34;&gt;CyberChef&lt;/a&gt;. If we were really confident about our guess we could even have &lt;a href=&#34;https://gchq.github.io/CyberChef/#recipe=From_Hex(&#39;None&#39;)XOR(%7B&#39;option&#39;:&#39;Latin1&#39;,&#39;string&#39;:&#39;286954fbe19a4de865789fdf75cca5ea&#39;%7D,&#39;Standard&#39;,false)Swap_endianness(&#39;Raw&#39;,4,false)To_Hex(&#39;Space&#39;,4)&amp;input=MzlEMzJBOTgzRURGN0FDMzZFREEyNUMwM0Y4Rjc5OTkzRERFMkI5OTMyOEQ3OEM3M0NERTdGQzI2QURFNzlDMA&#34;&gt;reversed the encryption key&lt;/a&gt; instead of getting it from the memory dump!&lt;/p&gt;
 &lt;p&gt;Although not necessary we tried to reverse the hash &lt;em&gt;9b1f18bc9e5569fb166a22ca6eb337a4&lt;/em&gt;. It wasn&amp;rsquo;t available in any rainbow table we found, but we found the corresponding cleartext &lt;em&gt;WHOTHEFUCKISALICE&lt;/em&gt; by chance. Looks like the passcode is meant to be case insensitive but case consistent.&lt;/p&gt;
 &lt;p&gt;Now we have everything we need to get the flag and write a little python script:&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; pwn &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;
@@ -770,10 +770,10 @@ Last Write Time	Hive Offset	Type	Key	Name	Data	Volatile
 &lt;p&gt;In a &lt;em&gt;Command Prompt (cmd.exe)&lt;/em&gt;, started with System privileges (Right click, run as administrator), execute:&lt;/p&gt;
 &lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;bcdedit -set TESTSIGNING OFF
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;and restart Windows. After a reboot, there should be the following &lt;em&gt;Test Mode&lt;/em&gt; watermark visible.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227023833349.png&#34; alt=&#34;image-20221227023833349&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt=&#34;image-20221227023833349&#34; src=&#34;/img/intentctf22-forensic-tea-party/image-20221227023833349.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;Make sure &lt;em&gt;Virus &amp;amp;  Threat Protection&lt;/em&gt; is still off and run &lt;em&gt;TeaParty.exe&lt;/em&gt;.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Et Voila:&lt;/strong&gt; When we type &lt;em&gt;whothefuckisalice&lt;/em&gt;, the &lt;strong&gt;flag&lt;/strong&gt; appears!&lt;/p&gt;
-&lt;p&gt;c&lt;img src=&#34;/img/intentctf22-forensic-tea-party/image-20221227024123467.png&#34; alt=&#34;image-20221227024123467&#34;&gt;&lt;/p&gt;
+&lt;p&gt;c&lt;img alt=&#34;image-20221227024123467&#34; src=&#34;/img/intentctf22-forensic-tea-party/image-20221227024123467.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;And we even could get it without fully reversing &lt;em&gt;TeaParty.sys&lt;/em&gt;, inferring the password from the process memory and modifying the .Net assembly like we tried above. Neat!&lt;/strong&gt;&lt;/p&gt;
 &lt;h2 id=&#34;leaving-wonderland-summary&#34;&gt;Leaving Wonderland: Summary&lt;/h2&gt;
 &lt;p&gt;I really liked this challenge as it needed quite a broad skill set to obtain the flag and introduced a couple of techniques and tools one could use:&lt;/p&gt;

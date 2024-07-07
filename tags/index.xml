@@ -5,13 +5,13 @@
     <link>/tags/</link>
     <description>Recent content in Tags on CyberTaskForce Zero</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language>
+    <language>en</language>
     <copyright>© 2021-2024 CyberTaskForce Zero</copyright>
-    <lastBuildDate>Wed, 05 Apr 2023 18:42:00 +0200</lastBuildDate><atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sun, 07 Jul 2024 18:09:00 +0200</lastBuildDate><atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>pwn</title>
+      <title>Pwn</title>
       <link>/tags/pwn/</link>
-      <pubDate>Wed, 05 Apr 2023 18:42:00 +0200</pubDate>
+      <pubDate>Sun, 07 Jul 2024 18:09:00 +0200</pubDate>
       
       <guid>/tags/pwn/</guid>
       <description></description>
@@ -19,7 +19,17 @@
     </item>
     
     <item>
-      <title>forensic</title>
+      <title>Rev</title>
+      <link>/tags/rev/</link>
+      <pubDate>Sun, 07 Jul 2024 18:09:00 +0200</pubDate>
+      
+      <guid>/tags/rev/</guid>
+      <description></description>
+      <content></content>
+    </item>
+    
+    <item>
+      <title>Forensic</title>
       <link>/tags/forensic/</link>
       <pubDate>Tue, 27 Dec 2022 19:10:24 +0100</pubDate>
       
@@ -29,7 +39,7 @@
     </item>
     
     <item>
-      <title>reversing</title>
+      <title>Reversing</title>
       <link>/tags/reversing/</link>
       <pubDate>Tue, 27 Dec 2022 19:10:24 +0100</pubDate>
       
@@ -39,7 +49,7 @@
     </item>
     
     <item>
-      <title>misc</title>
+      <title>Misc</title>
       <link>/tags/misc/</link>
       <pubDate>Sun, 09 Oct 2022 00:20:13 +0100</pubDate>
       
@@ -49,7 +59,7 @@
     </item>
     
     <item>
-      <title>beginner</title>
+      <title>Beginner</title>
       <link>/tags/beginner/</link>
       <pubDate>Sat, 08 Oct 2022 23:59:13 +0100</pubDate>
       
@@ -59,7 +69,7 @@
     </item>
     
     <item>
-      <title>aes</title>
+      <title>Aes</title>
       <link>/tags/aes/</link>
       <pubDate>Mon, 01 Aug 2022 13:27:00 +0200</pubDate>
       
@@ -69,7 +79,7 @@
     </item>
     
     <item>
-      <title>crypto</title>
+      <title>Crypto</title>
       <link>/tags/crypto/</link>
       <pubDate>Mon, 01 Aug 2022 13:27:00 +0200</pubDate>
       
@@ -79,7 +89,7 @@
     </item>
     
     <item>
-      <title>net</title>
+      <title>Net</title>
       <link>/tags/net/</link>
       <pubDate>Mon, 01 Aug 2022 13:27:00 +0200</pubDate>
       

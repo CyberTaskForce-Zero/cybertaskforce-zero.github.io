@@ -12,6 +12,9 @@
 <link rel="canonical" href="/posts/realworldctf5-teewars/" />
 
 
+  
+
+
 
 
 <link rel="stylesheet" href="/assets/style.css">
@@ -426,7 +429,7 @@ For getting the <code>sizeof</code> operator used in <code>CDatafileItem</code> 
 </span></span><span style="display:flex;"><span>    <span style="color:#75715e">//bool operator&lt;(const CEnvPoint&amp; other) const { return m_Time &lt; other.m_Time; }
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>} [[<span style="color:#66d9ef">static</span>]];
 </span></span></code></pre></div><p>With these information we can take a closer look at the provided map and it&rsquo;s effect on Teeworlds.
-<img src="/img/realworldctf5-teewars-pattern_data.png" alt="Screenshot of the pattern data in ImHex">
+<img alt="Screenshot of the pattern data in ImHex" src="/img/realworldctf5-teewars-pattern_data.png">
 It features 27 items from which 6 are envelopes. All envelopes except the one with ID 1 are version 3 and fulfill the relevant constraints. The envelope with ID 1 has a version of -65533 (0xffff0003) and features 2 points with 65535 channels each.</p>
 <p>Since we now know the map file, let&rsquo;s have a closer look at the broken part of the parsing.</p>
 <h2 id="buffer-overflow">Buffer overflow<a href="#buffer-overflow" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
@@ -614,7 +617,7 @@ mov qword ptr [rdi], rax; ret
 </span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(<span style="color:#ae81ff">59</span>)                <span style="color:#75715e"># execve</span>
 </span></span><span style="display:flex;"><span>rop_chain <span style="color:#f92672">+=</span> p64(rop<span style="color:#f92672">.</span>syscall<span style="color:#f92672">.</span>address)
 </span></span></code></pre></div><p>After building the ROP chain, we have to integrate it into the prepared map file. From looking at the pattern data in ImHex, we can spot the relevant parts of the map file that need to be adjusted for the exploit. The number of channels can be found at 0x24c and the overflowable point&rsquo;s values start at 0x750.
-<img src="/img/realworldctf5-teewars-positions.png" alt="Screenshot of the pattern data in ImHex"></p>
+<img alt="Screenshot of the pattern data in ImHex" src="/img/realworldctf5-teewars-positions.png"></p>
 <p>With this information, we can finalize the script by building the exploit map.</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># read prepared map from file</span>
 </span></span><span style="display:flex;"><span><span style="color:#66d9ef">with</span> open(<span style="color:#e6db74">&#34;maps/prepared.map&#34;</span>, <span style="color:#e6db74">&#34;rb&#34;</span>) <span style="color:#66d9ef">as</span> f:
